@@ -28,14 +28,12 @@ export const CameraTestView: React.FC = () => {
     id: '',
     name: '',
     brand: 'Hikvision',
-    model: '',
     ip: '',
     port: 554,
     protocol: 'RTSP',
     username: '',
     password: '',
     streamUrl: '',
-    apiUrl: '',
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -129,13 +127,14 @@ export const CameraTestView: React.FC = () => {
     await cameraConnectionService.saveCamera(configToSave);
     refreshSavedCameras();
     setFormData(configToSave);
-    setSaveSuccessMsg(`Đã lưu cấu hình ${assignedId} thành công.`);
+    setSaveSuccessMsg(`Đã lưu cấu hình ${configToSave.name} thành công.`);
     setTimeout(() => setSaveSuccessMsg(null), 4000);
   };
 
   const handleLoadCamera = (camera: CameraConnectionConfig) => {
+    const { model: _model, apiUrl: _apiUrl, ...visibleCameraConfig } = camera;
     setFormData({
-      ...camera,
+      ...visibleCameraConfig,
       password: '', // Keep password blank when loading for security
     });
     setConnectionStatus('NOT_CONNECTED');
@@ -143,9 +142,9 @@ export const CameraTestView: React.FC = () => {
     setSaveSuccessMsg(null);
   };
 
-  const handleDeleteCamera = (id: string, e: React.MouseEvent) => {
+  const handleDeleteCamera = (id: string, name: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm(`Bạn có chắc muốn xóa camera cấu hình [${id}]?`)) {
+    if (confirm(`Bạn có chắc muốn xóa camera “${name}”?`)) {
       cameraConnectionService.deleteCamera(id);
       refreshSavedCameras();
       if (formData.id === id) {
@@ -159,14 +158,12 @@ export const CameraTestView: React.FC = () => {
       id: '',
       name: '',
       brand: 'Hikvision',
-      model: '',
       ip: '',
       port: 554,
       protocol: 'RTSP',
       username: '',
       password: '',
       streamUrl: '',
-      apiUrl: '',
     });
     setConnectionStatus('NOT_CONNECTED');
     setConnectionResult(null);
@@ -216,8 +213,8 @@ export const CameraTestView: React.FC = () => {
             </div>
 
             <form onSubmit={handleTestConnection} className="p-5 space-y-4">
-              {/* Camera Name & ID */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Camera Name */}
+              <div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                     Camera Name <span className="text-red-500">*</span>
@@ -233,23 +230,10 @@ export const CameraTestView: React.FC = () => {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Camera ID
-                  </label>
-                  <input
-                    type="text"
-                    name="id"
-                    value={formData.id}
-                    onChange={handleInputChange}
-                    placeholder="VD: CAM-REAL-01 (Tự sinh nếu để trống)"
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 font-mono focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-hidden"
-                  />
-                </div>
               </div>
 
-              {/* Brand & Model */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Brand */}
+              <div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                     Brand (Hãng sản xuất) <span className="text-red-500">*</span>
@@ -268,19 +252,6 @@ export const CameraTestView: React.FC = () => {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Model
-                  </label>
-                  <input
-                    type="text"
-                    name="model"
-                    value={formData.model || ''}
-                    onChange={handleInputChange}
-                    placeholder="VD: DS-2CD2043G2-I"
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-hidden"
-                  />
-                </div>
               </div>
 
               {/* IP, Port, Protocol */}
@@ -383,7 +354,7 @@ export const CameraTestView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Optional Stream URL & API URL */}
+              {/* Optional Stream URL */}
               <div className="space-y-3 pt-1">
                 <div>
                   <div className="flex items-center justify-between mb-1">
@@ -404,24 +375,6 @@ export const CameraTestView: React.FC = () => {
                   />
                 </div>
 
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                      API URL (Optional)
-                    </label>
-                    <span className="text-[11px] text-slate-400">
-                      HTTP / ONVIF / ISAPI
-                    </span>
-                  </div>
-                  <input
-                    type="text"
-                    name="apiUrl"
-                    value={formData.apiUrl || ''}
-                    onChange={handleInputChange}
-                    placeholder="http://192.168.1.120/ISAPI/Streaming/channels/101"
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs sm:text-sm text-slate-900 font-mono focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-hidden"
-                  />
-                </div>
               </div>
 
               {/* Action Buttons */}
@@ -489,9 +442,7 @@ export const CameraTestView: React.FC = () => {
                     >
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-xs text-slate-900">
-                            {cam.id}
-                          </span>
+                          <span className="font-bold text-xs text-slate-900">{cam.name}</span>
                           <span className="rounded-sm bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 border border-slate-200">
                             {cam.brand}
                           </span>
@@ -499,8 +450,8 @@ export const CameraTestView: React.FC = () => {
                             {cam.ip}:{cam.port || 554}
                           </span>
                         </div>
-                        <div className="text-xs text-slate-600 font-medium line-clamp-1">
-                          {cam.name}
+                        <div className="text-xs text-slate-500 font-medium line-clamp-1">
+                          {cam.protocol} stream
                         </div>
                       </div>
 
@@ -512,7 +463,7 @@ export const CameraTestView: React.FC = () => {
 
                         <button
                           type="button"
-                          onClick={(e) => handleDeleteCamera(cam.id, e)}
+                          onClick={(e) => handleDeleteCamera(cam.id, cam.name, e)}
                           className="p-1 rounded-md text-slate-400 hover:text-red-600 hover:bg-slate-100 transition-colors"
                           title="Xóa cấu hình"
                         >
@@ -650,23 +601,9 @@ export const CameraTestView: React.FC = () => {
               </div>
 
               <div className="flex items-center justify-between py-1 border-b border-slate-50">
-                <span className="text-slate-500">Camera ID:</span>
-                <span className="font-mono font-bold text-slate-800">
-                  {formData.id || '(Tự động gán)'}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-500">Brand:</span>
                 <span className="font-medium text-slate-900">
                   {formData.brand}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between py-1 border-b border-slate-50">
-                <span className="text-slate-500">Model:</span>
-                <span className="font-medium text-slate-900">
-                  {formData.model || 'N/A'}
                 </span>
               </div>
 
@@ -710,13 +647,6 @@ export const CameraTestView: React.FC = () => {
             </div>
 
             <div className="space-y-2 text-xs">
-              <div className="flex items-center justify-between py-1 border-b border-slate-50">
-                <span className="text-slate-500">Camera:</span>
-                <span className="font-mono font-bold text-slate-900">
-                  {connectionResult?.cameraId || formData.id || 'N/A'}
-                </span>
-              </div>
-
               <div className="flex items-center justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-500">Status:</span>
                 <span
