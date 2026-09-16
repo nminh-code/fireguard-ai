@@ -10,13 +10,10 @@ import {
   Flame,
   AlertTriangle,
   CheckCircle2,
-  Calendar,
   ArrowRight,
-  ShieldCheck,
   Radio,
   Eye,
   MapPin,
-  Clock,
   Zap,
 } from 'lucide-react';
 
@@ -93,9 +90,9 @@ export const DashboardView: React.FC = () => {
 
   return (
     <div className="space-y-6" id="dashboard-view">
-      {/* 4 Core Questions Banner */}
+      {/* Factory Overview Banner */}
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl md:text-2xl font-black tracking-tight text-slate-900">
@@ -105,9 +102,6 @@ export const DashboardView: React.FC = () => {
                 KCN Đình Vũ
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Hệ thống giám sát và cảnh báo cháy AI trực tuyến 24/7 qua 24 luồng CCTV/IP camera
-            </p>
           </div>
 
           <div className="flex items-center gap-3">
@@ -121,93 +115,6 @@ export const DashboardView: React.FC = () => {
           </div>
         </div>
 
-        {/* 4 Emergency Questions Instant Check */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-4">
-          {/* Question 1: Hệ thống có hoạt động không? */}
-          <div className="rounded-lg bg-slate-50 p-3 border border-slate-200/80">
-            <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-              1. Hoạt động hệ thống
-            </div>
-            <div className="mt-1 flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
-              <span className="text-xs font-bold text-slate-900">
-                AI Engine & Server Hoạt Động 100%
-              </span>
-            </div>
-          </div>
-
-          {/* Question 2: Có camera offline không? */}
-          <div
-            onClick={() => navigate('/cameras?filter=offline')}
-            className="rounded-lg bg-slate-50 p-3 border border-slate-200/80 hover:bg-slate-100 transition-colors cursor-pointer"
-          >
-            <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-              2. Camera Ngoại Tuyến
-            </div>
-            <div className="mt-1 flex items-center gap-2">
-              {stats.camerasOffline > 0 ? (
-                <>
-                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
-                  <span className="text-xs font-bold text-amber-700">
-                    {stats.camerasOffline} Camera Offline (CAM-14) →
-                  </span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                  <span className="text-xs font-bold text-emerald-700">Tất cả camera online</span>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Question 3: Có sự cố cháy đang hoạt động không? */}
-          <div
-            onClick={() => activeIncident && navigate(`/incidents/${activeIncident.id}`)}
-            className={`rounded-lg p-3 border transition-colors ${
-              stats.activeIncidents > 0
-                ? 'bg-red-50 border-red-200 hover:bg-red-100 cursor-pointer'
-                : 'bg-slate-50 border-slate-200/80'
-            }`}
-          >
-            <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-              3. Sự Cố Cháy Hoạt Động
-            </div>
-            <div className="mt-1 flex items-center gap-2">
-              {stats.activeIncidents > 0 ? (
-                <>
-                  <Flame className="h-4 w-4 text-red-600 animate-pulse shrink-0 fill-red-600" />
-                  <span className="text-xs font-black text-red-700">
-                    CÓ ({stats.activeIncidents} SỰ CỐ KHẨN CẤP) →
-                  </span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                  <span className="text-xs font-bold text-emerald-700">0 sự cố cháy</span>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Question 4: Sự cố gần nhất là gì? */}
-          <div
-            onClick={() => stats.lastIncident && navigate(`/incidents/${stats.lastIncident.id}`)}
-            className="rounded-lg bg-slate-50 p-3 border border-slate-200/80 hover:bg-slate-100 transition-colors cursor-pointer"
-          >
-            <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-              4. Sự Cố Gần Nhất
-            </div>
-            <div className="mt-1 truncate text-xs font-bold text-slate-900 flex items-center gap-1.5">
-              <Clock className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-              <span className="truncate">
-                {stats.lastIncident
-                  ? `${stats.lastIncident.location} (${stats.lastIncident.cameraCode})`
-                  : 'Chưa có sự cố'}
-              </span>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Prominent Incident Banner: Normal vs Active Fire */}
@@ -304,7 +211,7 @@ export const DashboardView: React.FC = () => {
       )}
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Total Cameras */}
         <div
           onClick={() => navigate('/cameras')}
@@ -388,26 +295,6 @@ export const DashboardView: React.FC = () => {
           </div>
         </div>
 
-        {/* Today's Events */}
-        <div
-          onClick={() => navigate('/history')}
-          className="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs hover:border-slate-300 transition-colors cursor-pointer"
-        >
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-xs font-semibold uppercase tracking-wider">Today's Events</span>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
-              <Calendar className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-black text-slate-900">{stats.todayEventsCount}</span>
-            <span className="text-xs text-slate-500 font-medium">Sự kiện hôm nay</span>
-          </div>
-          <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
-            <span>Bao gồm cảnh báo & ghi nhận</span>
-            <span className="font-medium text-slate-700 underline">Lịch sử →</span>
-          </div>
-        </div>
       </div>
 
       {/* Live CCTV Streams Section (Full Width) */}
