@@ -187,5 +187,6 @@ export interface CameraConnectionResult {
   lastChecked?: string;
   errorMessage?: string;
   latencyMs?: number;
+  playbackUrl?: string;
   details?: Record<string, unknown>;
 }

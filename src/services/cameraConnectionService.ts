@@ -29,33 +29,7 @@ export const CAMERA_API_ENDPOINTS = {
 
 const STORAGE_KEY = 'fireguard_saved_camera_configs';
 
-// Seed sample configurations for UI display (Non-sensitive / placeholders)
-const INITIAL_SAVED_CONFIGS: CameraConnectionConfig[] = [
-  {
-    id: 'CAM-TEST-01',
-    name: 'Camera Cổng Chính (Mock Local)',
-    brand: 'Hikvision',
-    model: 'DS-2CD2043G2-I',
-    ip: '192.168.1.101',
-    port: 554,
-    protocol: 'RTSP',
-    username: 'admin',
-    // NO hardcoded real password
-    password: '',
-    streamUrl: 'rtsp://192.168.1.101:554/Streaming/Channels/101',
-  },
-  {
-    id: 'CAM-TEST-02',
-    name: 'Camera Kho B TP.Hải Phòng (Mock Local)',
-    brand: 'Dahua',
-    model: 'IPC-HFW2431S-S-S2',
-    ip: '192.168.1.102',
-    port: 80,
-    protocol: 'ONVIF',
-    username: 'admin',
-    password: '',
-  },
-];
+const INITIAL_SAVED_CONFIGS: CameraConnectionConfig[] = [];
 
 class CameraConnectionService {
   private savedCameras: CameraConnectionConfig[] = [];
@@ -87,14 +61,25 @@ class CameraConnectionService {
   private persistToStorage(): void {
     try {
       // Clean sensitive fields before storage if any
-      const sanitized = this.savedCameras.map((c) => ({
-        ...c,
-        password: c.password ? '******' : '',
-      }));
+      const sanitized = this.savedCameras.map((c) => this.sanitizeForStorage(c));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
     } catch {
       // Ignore storage errors in sandbox
     }
+  }
+
+  private sanitizeForStorage(config: CameraConnectionConfig): CameraConnectionConfig {
+    let streamUrl = config.streamUrl || '';
+    try {
+      const parsed = new URL(streamUrl);
+      parsed.username = '';
+      parsed.password = '';
+      streamUrl = parsed.toString();
+    } catch {
+      // Preserve incomplete/non-URL paths, but never persist an obvious credential section.
+      streamUrl = streamUrl.replace(/^(rtsp:\/\/)[^@/]+@/i, '$1');
+    }
+    return { ...config, password: '', streamUrl };
   }
 
   private getFormattedTimestamp(): string {
@@ -153,6 +138,7 @@ class CameraConnectionService {
           apiStatus: data.apiStatus || 'AVAILABLE',
           lastChecked: this.getFormattedTimestamp(),
           latencyMs: data.latencyMs,
+          playbackUrl: data.playbackUrl,
           details: data,
         };
       }
@@ -160,6 +146,12 @@ class CameraConnectionService {
       // Backend returned HTTP error status
       this.connectionStatuses[cameraConfig.id] = 'FAILED';
       const errText = await response.text();
+      let message = errText;
+      try {
+        message = (JSON.parse(errText) as { error?: string }).error || errText;
+      } catch {
+        // The bridge may return plain text for an infrastructure error.
+      }
       return {
         cameraId: cameraConfig.id,
         status: 'FAILED',
@@ -167,7 +159,7 @@ class CameraConnectionService {
         apiStatus: 'UNAVAILABLE',
         lastChecked: this.getFormattedTimestamp(),
         errorMessage: `Backend response (${response.status}): ${
-          errText || response.statusText || 'Lỗi kiểm tra kết nối camera'
+          message || response.statusText || 'Lỗi kiểm tra kết nối camera'
         }`,
       };
     } catch {
@@ -179,7 +171,7 @@ class CameraConnectionService {
         streamStatus: 'UNAVAILABLE',
         apiStatus: 'UNAVAILABLE',
         lastChecked: this.getFormattedTimestamp(),
-        errorMessage: 'Backend connection service not configured',
+        errorMessage: 'Không kết nối được video bridge tại http://localhost:8787. Hãy chạy npm run bridge.',
       };
     }
   }
@@ -194,10 +186,11 @@ class CameraConnectionService {
       (c) => c.id === cameraConfig.id
     );
 
+    const safeConfig = this.sanitizeForStorage(cameraConfig);
     if (existingIndex >= 0) {
-      this.savedCameras[existingIndex] = { ...cameraConfig };
+      this.savedCameras[existingIndex] = safeConfig;
     } else {
-      this.savedCameras.push({ ...cameraConfig });
+      this.savedCameras.push(safeConfig);
     }
 
     if (!this.connectionStatuses[cameraConfig.id]) {
@@ -208,16 +201,17 @@ class CameraConnectionService {
 
     // Optionally notify backend if available in the future
     try {
+      const sanitizedConfig = safeConfig;
       fetch(CAMERA_API_ENDPOINTS.SAVE_CAMERA, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(cameraConfig),
+        body: JSON.stringify(sanitizedConfig),
       }).catch(() => {});
     } catch {
       // Silent catch for mock phase
     }
 
-    return { success: true, camera: cameraConfig };
+    return { success: true, camera: safeConfig };
   }
 
   /**

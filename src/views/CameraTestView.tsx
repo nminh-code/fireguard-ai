@@ -7,6 +7,7 @@ import {
   CameraProtocol,
 } from '../types';
 import { cameraConnectionService } from '../services/cameraConnectionService';
+import { HlsVideoPlayer } from '../components/HlsVideoPlayer';
 import {
   Video,
   Radio,
@@ -102,7 +103,7 @@ export const CameraTestView: React.FC = () => {
         streamStatus: 'UNAVAILABLE',
         apiStatus: 'UNAVAILABLE',
         lastChecked: new Date().toLocaleString(),
-        errorMessage: 'Backend connection service not configured',
+        errorMessage: 'Không kết nối được video bridge.',
       });
     } finally {
       setIsTesting(false);
@@ -580,6 +581,18 @@ export const CameraTestView: React.FC = () => {
               )}
             </div>
           </div>
+
+          {connectionStatus === 'CONNECTED' && connectionResult?.playbackUrl && (
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-700">Video camera trực tiếp</span>
+                <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" /> LIVE
+                </span>
+              </div>
+              <HlsVideoPlayer src={connectionResult.playbackUrl} />
+            </div>
+          )}
 
           {/* 2. Camera Information Summary (Password is strictly excluded) */}
           <div className="rounded-xl border border-slate-200 bg-white shadow-2xs p-5 space-y-3">
