@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { UserRole } from '../types';
+import { FireLogo } from './FireLogo';
 import {
   LayoutDashboard,
   Cctv,
@@ -74,24 +75,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Brand Header */}
         <div className="flex h-16 items-center justify-between border-b border-slate-200 px-5">
           <div
-            className="flex items-center gap-2.5 cursor-pointer"
+            className="flex items-center cursor-pointer"
             onClick={() => {
               navigate('/');
               onClose();
             }}
           >
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-600 text-white shadow-xs">
-              <Flame className="h-5 w-5 fill-white" />
-            </div>
-            <div>
-              <div className="flex items-baseline gap-1">
-                <span className="font-black tracking-tight text-slate-900 text-base">FIREGUARD</span>
-                <span className="font-bold text-red-600 text-sm">AI</span>
-              </div>
-              <div className="text-[9px] font-bold tracking-widest text-slate-400 uppercase leading-none">
-                AI FIRE MONITORING
-              </div>
-            </div>
+            <FireLogo variant="full" size={40} styleVariant="glow-badge" />
           </div>
 
           <button

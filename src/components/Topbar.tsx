@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { User, UserRole, Notification, DashboardStats } from '../types';
+import { FireLogo } from './FireLogo';
 import { authService } from '../services/authService';
 import { notificationService } from '../services/notificationService';
 import { incidentService } from '../services/incidentService';
@@ -95,7 +96,10 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, on
         </button>
 
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700 border border-slate-200">
+          <div className="lg:hidden shrink-0">
+            <FireLogo variant="icon" size={32} styleVariant="glow-badge" />
+          </div>
+          <div className="hidden lg:flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700 border border-slate-200">
             <Building2 className="h-5 w-5 text-slate-800" />
           </div>
           <div>
