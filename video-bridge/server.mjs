@@ -10,18 +10,30 @@ const port = Number(process.env.VIDEO_BRIDGE_PORT || 8787);
 const bridgeDir = path.dirname(fileURLToPath(import.meta.url));
 const streamsDir = path.join(bridgeDir, 'streams');
 const sessions = new Map();
-const ffmpegAvailable = spawnSync('ffmpeg', ['-version'], { windowsHide: true }).status === 0;
+const requests = new Map();
+const sourceRequests = new Map();
+const ffmpeg = process.env.FFMPEG_PATH || 'ffmpeg';
+const ffmpegAvailable = spawnSync(ffmpeg, ['-version'], { windowsHide: true }).status === 0;
+const STALE_MS = 20000;
 mkdirSync(streamsDir, { recursive: true });
 
 app.disable('x-powered-by');
+app.disable('etag');
 app.use(express.json({ limit: '32kb' }));
 // Serve one complete playlist snapshot, never a cached/ranged fragment.
 // Fail explicitly if a stale or damaged playlist references missing files.
 app.get('/streams/:streamId/index.m3u8', (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   if (!/^[a-zA-Z0-9_-]+$/.test(req.params.streamId)) return res.sendStatus(400);
   const directory = path.join(streamsDir, req.params.streamId);
   try {
+    const child = [...sessions.values()].find(item => item.streamId === req.params.streamId);
+    if (!child || child.exitCode !== null || child.killed ||
+        Date.now() - statSync(path.join(directory, 'index.m3u8')).mtimeMs > STALE_MS) {
+      return res.status(410).end('Live session stopped or stalled. Test the camera again.');
+    }
     const playlist = readFileSync(path.join(directory, 'index.m3u8'), 'utf8');
     const segments = playlist.split(/\r?\n/).map(line => line.trim())
       .filter(line => line && !line.startsWith('#'));
@@ -49,10 +61,16 @@ function safeId(value) {
   return String(value || 'camera').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);
 }
 
-function stopSession(id) {
+async function stopSession(id) {
   const child = sessions.get(id);
-  if (child && !child.killed) child.kill('SIGTERM');
-  sessions.delete(id);
+  if (child && child.exitCode === null && child.signalCode === null) {
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('FFmpeg cũ chưa dừng; hãy thử lại.')), 5000);
+      child.once('close', () => { clearTimeout(timer); resolve(); });
+      child.kill('SIGTERM');
+    });
+  }
+  if (sessions.get(id) === child) sessions.delete(id);
 }
 
 function buildRtspUrl(config) {
@@ -83,13 +101,13 @@ function waitForHls(outputDir, child, timeoutMs = 25000) {
         const playlist = readFileSync(path.join(outputDir, 'index.m3u8'), 'utf8');
         const segments = playlist.split(/\r?\n/).map(line => line.trim())
           .filter(line => line && !line.startsWith('#'));
-        ready = playlist.startsWith('#EXTM3U') && segments.length > 0 && segments.every(name =>
+        ready = playlist.startsWith('#EXTM3U') && segments.length >= 3 && segments.every(name =>
           /^segment_\d+\.ts$/.test(name) && statSync(path.join(outputDir, name)).size > 0);
       } catch { /* Playlist is not published yet; retry on the next tick. */ }
       if (child.exitCode === null && !child.killed && ready) {
         clearInterval(timer);
         resolve();
-      } else if (child.exitCode !== null || child.killed) {
+      } else if (child.exitCode !== null || child.killed || child.spawnFailed) {
         clearInterval(timer);
         reject(new Error('FFmpeg dừng trước khi nhận được video. Kiểm tra URL, tài khoản, codec và kết nối mạng.'));
       } else if (Date.now() - started > timeoutMs) {
@@ -107,21 +125,36 @@ app.post('/api/v1/cameras/test-connection', async (req, res) => {
   // must not collide with the next test for the same camera.
   const streamId = randomUUID();
   const outputDir = path.join(streamsDir, streamId);
+  requests.set(id, streamId);
   let child;
+  let sourceKey;
   try {
     if (!ffmpegAvailable) {
       throw new Error('Không tìm thấy FFmpeg trong PATH. Hãy cài FFmpeg rồi khởi động lại video bridge.');
     }
     const rtspUrl = buildRtspUrl(req.body || {});
-    stopSession(id);
+    // Avoid multiple UDP readers from this bridge for the same camera path.
+    const parsed = new URL(rtspUrl);
+    sourceKey = `${parsed.host}${parsed.pathname}${parsed.search}`;
+    sourceRequests.set(sourceKey, streamId);
+    for (const [otherId, other] of sessions) {
+      if (otherId === id || other.sourceKey === sourceKey) await stopSession(otherId);
+    }
+    if (requests.get(id) !== streamId || sourceRequests.get(sourceKey) !== streamId) {
+      throw new Error('Đã có yêu cầu kiểm tra mới hơn.');
+    }
     mkdirSync(outputDir, { recursive: true });
 
-    child = spawn('ffmpeg', [
-      '-hide_banner', '-loglevel', 'error',
+    child = spawn(ffmpeg, [
+      '-hide_banner', '-nostdin', '-loglevel', 'warning', '-nostats', '-progress', 'pipe:1',
       '-rtsp_transport', 'udp',
+      // Use receive time, not the camera's drifting/discontinuous RTP clock.
+      '-use_wallclock_as_timestamps', '1', '-fflags', '+genpts+discardcorrupt',
       '-i', rtspUrl,
-      '-an', '-c:v', 'libx264', '-preset', 'veryfast', '-tune', 'zerolatency',
+      '-map', '0:v:0', '-an', '-vf', 'setpts=PTS-STARTPTS', '-fps_mode', 'vfr',
+      '-c:v', 'libx264', '-preset', 'veryfast', '-tune', 'zerolatency',
       '-pix_fmt', 'yuv420p', '-g', '30', '-keyint_min', '30', '-sc_threshold', '0',
+      '-force_key_frames', 'expr:gte(t,n_forced*2)',
       '-f', 'hls', '-hls_time', '2', '-hls_list_size', '10',
       // Keep an extra 120 seconds for clients fetching a previous playlist.
       // Publish completed segments atomically before advertising them.
@@ -129,15 +162,41 @@ app.post('/api/v1/cameras/test-connection', async (req, res) => {
       '-hls_flags', 'delete_segments+temp_file+omit_endlist+independent_segments',
       '-hls_segment_filename', 'segment_%05d.ts',
       'index.m3u8',
-    ], { cwd: outputDir, windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] });
+    ], { cwd: outputDir, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    child.streamId = streamId;
+    child.sourceKey = sourceKey;
+    child.startedAt = Date.now();
+    child.metrics = {};
     sessions.set(id, child);
-    child.stderr.on('data', () => {}); // Consume output; never log a URL containing credentials.
+    // Only expose numeric progress; never store/log FFmpeg text containing credentials.
+    let progress = '';
+    child.stdout.on('data', data => {
+      progress += data.toString();
+      const lines = progress.split(/\r?\n/);
+      progress = lines.pop().slice(-1024);
+      for (const line of lines) {
+        const [key, value] = line.split('=');
+        if (['frame', 'out_time_us', 'dup_frames', 'drop_frames'].includes(key) && Number.isFinite(Number(value))) {
+          child.metrics[key] = Number(value);
+        }
+      }
+    });
+    child.stderr.on('data', () => {});
+    const watchdog = setInterval(() => {
+      let updatedAt = child.startedAt;
+      try { updatedAt = statSync(path.join(outputDir, 'index.m3u8')).mtimeMs; } catch {}
+      if (Date.now() - updatedAt > STALE_MS) child.kill('SIGTERM');
+    }, 2000);
+    child.once('close', () => clearInterval(watchdog));
     child.once('exit', () => {
       if (sessions.get(id) === child) sessions.delete(id);
     });
-    child.once('error', () => {});
+    child.once('error', () => { child.spawnFailed = true; });
 
     await waitForHls(outputDir, child);
+    if (sessions.get(id) !== child || requests.get(id) !== streamId) {
+      throw new Error('Phiên camera đã được thay thế.');
+    }
     res.json({
       cameraId: id,
       streamStatus: 'AVAILABLE',
@@ -151,12 +210,36 @@ app.post('/api/v1/cameras/test-connection', async (req, res) => {
     if (child && !child.killed) child.kill('SIGTERM');
     if (sessions.get(id) === child) sessions.delete(id);
     res.status(502).json({ error: error instanceof Error ? error.message : 'Không thể mở RTSP stream.' });
+  } finally {
+    if (requests.get(id) === streamId) requests.delete(id);
+    if (sourceRequests.get(sourceKey) === streamId) sourceRequests.delete(sourceKey);
   }
 });
 
-app.post('/api/v1/cameras/:id/disconnect', (req, res) => {
-  stopSession(safeId(req.params.id));
-  res.json({ success: true });
+app.post('/api/v1/cameras/:id/disconnect', async (req, res) => {
+  const id = safeId(req.params.id);
+  requests.delete(id);
+  try { await stopSession(id); res.json({ success: true }); }
+  catch { res.status(503).json({ error: 'Không thể dừng FFmpeg.' }); }
+});
+
+app.get('/api/v1/cameras/:id/status', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  const child = sessions.get(safeId(req.params.id));
+  if (!child) return res.json({ status: 'NOT_CONNECTED' });
+  let sequence = null;
+  let lastSegment = null;
+  let playlistAgeMs = null;
+  try {
+    const file = path.join(streamsDir, child.streamId, 'index.m3u8');
+    const playlist = readFileSync(file, 'utf8');
+    sequence = Number(playlist.match(/MEDIA-SEQUENCE:(\d+)/)?.[1]);
+    lastSegment = playlist.match(/^segment_\d+\.ts$/gm)?.at(-1);
+    playlistAgeMs = Date.now() - statSync(file).mtimeMs;
+  } catch {}
+  res.json({ status: playlistAgeMs !== null && playlistAgeMs < STALE_MS && !child.killed ? 'CONNECTED' : 'CONNECTING',
+    streamId: child.streamId, sequence, lastSegment, playlistAgeMs,
+    elapsedSeconds: (Date.now() - child.startedAt) / 1000, ...child.metrics });
 });
 
 app.post('/api/v1/cameras', (_req, res) => res.json({ success: true }));
@@ -166,8 +249,8 @@ const server = app.listen(port, '127.0.0.1', () => {
   console.log(`Video bridge listening on http://127.0.0.1:${port}`);
 });
 
-function shutdown() {
-  for (const id of sessions.keys()) stopSession(id);
+async function shutdown() {
+  await Promise.allSettled([...sessions.keys()].map(stopSession));
   server.close(() => process.exit(0));
 }
 process.on('SIGINT', shutdown);
