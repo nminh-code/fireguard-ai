@@ -1,22 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation, NavLink } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { User, UserRole, Notification, DashboardStats } from '../types';
 import { notificationService } from '../services/notificationService';
 import { incidentService } from '../services/incidentService';
 import { realtimeService } from '../services/realtimeService';
+import { soundManager } from '../utils/audioAlert';
 import {
   Bell,
-  Flame,
   Menu,
-  ChevronDown,
+  Building2,
   UserCheck,
-  Video,
-  LayoutDashboard,
-  Cctv,
-  Map,
-  History,
-  Settings,
-  Users,
+  Zap,
+  CheckCircle2,
 } from 'lucide-react';
 
 interface TopbarProps {
@@ -27,12 +22,12 @@ interface TopbarProps {
 
 export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, onRoleChange }) => {
   const navigate = useNavigate();
-  const location = useLocation();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(2);
   const [showNotifMenu, setShowNotifMenu] = useState(false);
   const [showRoleMenu, setShowRoleMenu] = useState(false);
+  const [isSimulating, setIsSimulating] = useState(false);
 
   const loadData = async () => {
     const s = await incidentService.getDashboardStats();
@@ -59,80 +54,97 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, on
     };
   }, []);
 
-  const topNavItems = [
-    { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-    { name: 'Cameras', path: '/cameras', icon: Cctv },
-    { name: 'Incidents', path: '/incidents', icon: Flame },
-    { name: 'Site Map', path: '/map', icon: Map },
-    { name: 'History', path: '/history', icon: History },
-    {
-      name: 'Notifications',
-      path: '/notifications',
-      icon: Bell,
-      badge: 2,
-    },
-    { name: 'Settings', path: '/settings', icon: Settings },
-    { name: 'Management', path: '/management', icon: Users },
-  ];
+  const handleSimulateFire = () => {
+    setIsSimulating(true);
+    soundManager.playFireAlarm();
+    const inc = incidentService.simulateFireEvent();
+    loadData();
+    setTimeout(() => {
+      setIsSimulating(false);
+      navigate(`/incidents/${inc.id}`);
+    }, 400);
+  };
+
+  const handleResolveLatest = async () => {
+    soundManager.playSuccessTone();
+    incidentService.resolveLatestActiveIncident(currentUser.name);
+    await loadData();
+  };
+
+  const hasActiveFire = (stats?.activeIncidents ?? 0) > 0;
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200 bg-white px-3 md:px-6 shadow-2xs">
-      {/* Mobile Hamburger toggle */}
-      <button
-        onClick={onToggleSidebar}
-        className="rounded-md p-2 text-slate-600 hover:bg-slate-100 lg:hidden focus:outline-hidden"
-        title="Mở menu"
-        id="btn-sidebar-toggle"
-      >
-        <Menu className="h-5 w-5" />
-      </button>
-
-      {/* Horizontal Pill Navigation Bar matching Reference Image */}
-      <nav className="hidden lg:flex items-center gap-1.5 overflow-x-auto py-1">
-        {/* Camera Test Button */}
-        <NavLink
-          to="/camera-test"
-          className={({ isActive }) =>
-            `flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-              isActive
-                ? 'bg-red-600 text-white shadow-xs'
-                : 'bg-red-600 text-white hover:bg-red-700 shadow-xs'
-            }`
-          }
+    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200 bg-white px-4 md:px-6 shadow-2xs">
+      {/* Left side: Hamburger button + Factory Header info */}
+      <div className="flex items-center gap-3 md:gap-4">
+        <button
+          onClick={onToggleSidebar}
+          className="rounded-md p-2 text-slate-600 hover:bg-slate-100 lg:hidden focus:outline-hidden"
+          title="Mở menu"
+          id="btn-sidebar-toggle"
         >
-          <Video className="h-3.5 w-3.5" />
-          <span>Camera Test</span>
-        </NavLink>
+          <Menu className="h-5 w-5" />
+        </button>
 
-        {topNavItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              end={item.path === '/'}
-              className={({ isActive }) =>
-                `flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-                  isActive
-                    ? 'bg-blue-100 text-blue-700 font-semibold shadow-2xs'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                }`
-              }
-            >
-              <Icon className="h-3.5 w-3.5" />
-              <span>{item.name}</span>
-              {item.badge !== undefined && (
-                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white ml-0.5">
-                  {item.badge}
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700 border border-slate-200">
+            <Building2 className="h-5 w-5 text-slate-800" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-sm md:text-base text-slate-900 leading-tight">
+                Nhà máy ABC - Hải Phòng
+              </span>
+              <span className="hidden md:inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                KCN Đình Vũ
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs">
+              {hasActiveFire ? (
+                <span className="flex items-center gap-1 font-bold text-red-600 animate-pulse">
+                  <span className="h-2 w-2 rounded-full bg-red-600"></span>
+                  🔴 SỰ CỐ CHÁY ĐANG HOẠT ĐỘNG ({stats?.activeIncidents})
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-emerald-700 font-medium">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+                  🟢 HỆ THỐNG GIÁM SÁT HOẠT ĐỘNG BÌNH THƯỜNG
                 </span>
               )}
-            </NavLink>
-          );
-        })}
-      </nav>
+            </div>
+          </div>
+        </div>
+      </div>
 
-      {/* Right side: Bell Notifications + User Profile Pill */}
+      {/* Right side: Demo Event Simulation + Bell Notifications + User Profile */}
       <div className="flex items-center gap-3">
+        {/* Demo AI Event Simulation Buttons */}
+        <div className="flex items-center gap-1.5 bg-slate-100/90 p-1 rounded-lg border border-slate-200">
+          <button
+            onClick={handleSimulateFire}
+            disabled={isSimulating}
+            className="flex items-center gap-1.5 rounded-md bg-red-600 hover:bg-red-700 active:scale-98 text-white px-2.5 py-1.5 text-xs font-semibold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+            title="Kích hoạt sự kiện cháy giả lập"
+            id="btn-simulate-fire"
+          >
+            <Zap className="h-3.5 w-3.5 text-yellow-300 fill-yellow-300" />
+            <span className="hidden sm:inline">GIẢ LẬP BÁO CHÁY</span>
+            <span className="sm:hidden">CHÁY</span>
+          </button>
+
+          {hasActiveFire && (
+            <button
+              onClick={handleResolveLatest}
+              className="flex items-center gap-1 rounded-md bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white px-2.5 py-1.5 text-xs font-semibold shadow-xs transition-all cursor-pointer"
+              title="Đánh dấu giải quyết sự cố cháy"
+              id="btn-resolve-fire"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">KHẮC PHỤC</span>
+            </button>
+          )}
+        </div>
+
         {/* Notifications Dropdown */}
         <div className="relative">
           <button
@@ -152,7 +164,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, on
           {showNotifMenu && (
             <div className="absolute right-0 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-3 shadow-xl z-50 animate-in fade-in-50 duration-150">
               <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-2">
-                <span className="font-semibold text-sm text-slate-900">Thông báo mới</span>
+                <span className="font-semibold text-sm text-slate-900">Thông báo giám sát</span>
                 <button
                   onClick={() => {
                     notificationService.markAllAsRead();
@@ -191,11 +203,11 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, on
         <div className="relative">
           <button
             onClick={() => setShowRoleMenu(!showRoleMenu)}
-            className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 hover:bg-slate-100 px-2 py-1 text-xs transition-colors cursor-pointer"
+            className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 hover:bg-slate-100 px-2.5 py-1 text-xs transition-colors cursor-pointer"
             id="btn-role-switcher"
           >
             {/* Avatar Pill circle NM */}
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-600 text-white font-bold text-xs">
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-700 text-white font-bold text-xs">
               NM
             </div>
             <div className="text-left pr-1">
@@ -207,7 +219,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, on
           {showRoleMenu && (
             <div className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 bg-white p-2 shadow-xl z-50">
               <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1">
-                Role Menu
+                Role Switcher
               </div>
               {(['ADMIN', 'MANAGER', 'SECURITY'] as UserRole[]).map((r) => (
                 <button
