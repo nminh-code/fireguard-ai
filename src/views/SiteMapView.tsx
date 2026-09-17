@@ -70,57 +70,57 @@ export const SiteMapView: React.FC = () => {
   const fireCount = 1;
   const offlineCount = 0;
 
-  // Zone pins configuration matching the reference 3D map exactly
+  // Zone pins configuration matching the 3D map building positions accurately
   const cameraPins = [
-    // Kho nguyên liệu (Fire hazard at CAM-08)
-    { code: 'CAM-01', x: 31, y: 25.5, status: 'ONLINE', zone: 'Kho nguyên liệu' },
-    { code: 'CAM-02', x: 23.5, y: 35.5, status: 'ONLINE', zone: 'Kho nguyên liệu' },
-    { code: 'CAM-07', x: 26.5, y: 43, status: 'ONLINE', zone: 'Kho nguyên liệu' },
-    { code: 'CAM-08', x: 30.5, y: 32.5, status: 'FIRE', zone: 'Kho nguyên liệu' },
+    // Kho nguyên liệu (Top-Left building with solar panels & water tanks, Fire hazard at CAM-08)
+    { code: 'CAM-01', x: 29, y: 19, status: 'ONLINE', zone: 'Kho nguyên liệu' },
+    { code: 'CAM-02', x: 12, y: 28, status: 'ONLINE', zone: 'Kho nguyên liệu' },
+    { code: 'CAM-07', x: 20, y: 32, status: 'ONLINE', zone: 'Kho nguyên liệu' },
+    { code: 'CAM-08', x: 24, y: 22, status: 'FIRE', zone: 'Kho nguyên liệu' },
 
-    // Xưởng sản xuất 1
-    { code: 'CAM-03', x: 48, y: 25.5, status: 'ONLINE', zone: 'Xưởng sản xuất 1' },
-    { code: 'CAM-04', x: 64, y: 29.5, status: 'ONLINE', zone: 'Xưởng sản xuất 1' },
-    { code: 'CAM-09', x: 66, y: 34, status: 'ONLINE', zone: 'Xưởng sản xuất 1' },
-    { code: 'CAM-10', x: 53.5, y: 41, status: 'ONLINE', zone: 'Xưởng sản xuất 1' },
-    { code: 'CAM-11', x: 63.5, y: 38.5, status: 'ONLINE', zone: 'Xưởng sản xuất 1' },
+    // Xưởng sản xuất 1 (Main large production hall in center left)
+    { code: 'CAM-03', x: 35, y: 37, status: 'ONLINE', zone: 'Xưởng sản xuất 1' },
+    { code: 'CAM-04', x: 42, y: 40, status: 'ONLINE', zone: 'Xưởng sản xuất 1' },
+    { code: 'CAM-09', x: 44, y: 46, status: 'ONLINE', zone: 'Xưởng sản xuất 1' },
+    { code: 'CAM-10', x: 25, y: 47, status: 'ONLINE', zone: 'Xưởng sản xuất 1' },
+    { code: 'CAM-11', x: 33, y: 48, status: 'ONLINE', zone: 'Xưởng sản xuất 1' },
 
-    // Xưởng sản xuất 2
-    { code: 'CAM-05', x: 58.5, y: 52.5, status: 'ONLINE', zone: 'Xưởng sản xuất 2' },
-    { code: 'CAM-06', x: 68, y: 59.8, status: 'ONLINE', zone: 'Xưởng sản xuất 2' },
-    { code: 'CAM-12', x: 61, y: 65, status: 'ONLINE', zone: 'Xưởng sản xuất 2' },
+    // Xưởng sản xuất 2 (Upper middle building behind main hall)
+    { code: 'CAM-05', x: 47, y: 30, status: 'ONLINE', zone: 'Xưởng sản xuất 2' },
+    { code: 'CAM-06', x: 57, y: 32, status: 'ONLINE', zone: 'Xưởng sản xuất 2' },
+    { code: 'CAM-19', x: 53, y: 35, status: 'ONLINE', zone: 'Xưởng sản xuất 2' },
 
-    // Kho thành phẩm
-    { code: 'CAM-15', x: 23, y: 58, status: 'ONLINE', zone: 'Kho thành phẩm' },
-    { code: 'CAM-16', x: 32.5, y: 57, status: 'ONLINE', zone: 'Kho thành phẩm' },
+    // Kho thành phẩm (Center-right building with solar roof)
+    { code: 'CAM-15', x: 56, y: 48, status: 'ONLINE', zone: 'Kho thành phẩm' },
+    { code: 'CAM-16', x: 64, y: 50, status: 'ONLINE', zone: 'Kho thành phẩm' },
 
-    // Văn phòng
-    { code: 'CAM-14', x: 44, y: 55.5, status: 'ONLINE', zone: 'Văn phòng' },
+    // Văn phòng (Multi-story glass building at bottom right)
+    { code: 'CAM-14', x: 64, y: 70, status: 'ONLINE', zone: 'Văn phòng' },
 
-    // Khu kỹ thuật
-    { code: 'CAM-12', x: 76, y: 47.5, status: 'WARNING', zone: 'Khu kỹ thuật' },
+    // Khu kỹ thuật (Heavy industrial piping & chimneys plant on right)
+    { code: 'CAM-12', x: 76, y: 44, status: 'WARNING', zone: 'Khu kỹ thuật' },
 
-    // Bãi xe
-    { code: 'CAM-13', x: 33.5, y: 80.5, status: 'ONLINE', zone: 'Bãi xe' },
+    // Bãi xe (Truck parking lot at top right)
+    { code: 'CAM-13', x: 83, y: 22, status: 'ONLINE', zone: 'Bãi xe' },
 
-    // Cổng chính
-    { code: 'CAM-17', x: 51.5, y: 82.5, status: 'ONLINE', zone: 'Cổng chính' },
+    // Cổng chính (Security entrance gate at bottom left)
+    { code: 'CAM-17', x: 32, y: 77, status: 'ONLINE', zone: 'Cổng chính' },
 
-    // Trạm điện
-    { code: 'CAM-18', x: 75.5, y: 75.5, status: 'WARNING', zone: 'Trạm điện' },
+    // Trạm điện (High-voltage power substation fenced grid at top center)
+    { code: 'CAM-18', x: 49, y: 13, status: 'WARNING', zone: 'Trạm điện' },
   ];
 
-  // Zone text labels on the map
+  // Zone text labels accurately placed above each facility
   const zoneLabels = [
-    { title: 'Kho nguyên liệu', x: 27, y: 28.5 },
-    { title: 'Xưởng sản xuất 1', x: 55, y: 29.5 },
-    { title: 'Kho thành phẩm', x: 28, y: 54.5 },
-    { title: 'Văn phòng', x: 44, y: 52.5 },
-    { title: 'Xưởng sản xuất 2', x: 62, y: 55.5 },
-    { title: 'Khu kỹ thuật', x: 74, y: 44.5 },
-    { title: 'Bãi xe', x: 31, y: 73.5 },
-    { title: 'Cổng chính', x: 51.5, y: 79.5 },
-    { title: 'Trạm điện', x: 75.5, y: 72 },
+    { title: 'Kho nguyên liệu', x: 24, y: 17 },
+    { title: 'Xưởng sản xuất 1', x: 30, y: 38 },
+    { title: 'Xưởng sản xuất 2', x: 52, y: 26 },
+    { title: 'Kho thành phẩm', x: 60, y: 44 },
+    { title: 'Khu kỹ thuật', x: 76, y: 38 },
+    { title: 'Văn phòng', x: 64, y: 64 },
+    { title: 'Bãi xe', x: 83, y: 17 },
+    { title: 'Cổng chính', x: 32, y: 72 },
+    { title: 'Trạm điện', x: 49, y: 8 },
   ];
 
   const zoneList = [
