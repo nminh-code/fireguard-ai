@@ -65,7 +65,7 @@ export const SettingsView: React.FC = () => {
       {savedSuccess && (
         <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-xs font-semibold text-emerald-800 animate-in fade-in-50">
           <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-          <span>Đã lưu thành công các thiết lập hệ thống FireGuard AI!</span>
+          <span>Đã lưu thành công các thiết lập hệ thống Favis AI!</span>
         </div>
       )}
 

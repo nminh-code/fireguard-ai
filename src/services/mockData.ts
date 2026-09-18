@@ -544,9 +544,9 @@ export const INITIAL_INCIDENT: Incident = {
       id: 'tl-1',
       time: '14:32:08',
       title: 'AI phát hiện đám cháy & khói đặc',
-      description: 'Mô hình FireGuard Vision V3 phát hiện đốm lửa bốc lên từ pallet nguyên liệu kệ 04 với độ tin cậy 96%. Khói đậm đặc lan nhanh.',
+      description: 'Mô hình Favis Vision V3 phát hiện đốm lửa bốc lên từ pallet nguyên liệu kệ 04 với độ tin cậy 96%. Khói đậm đặc lan nhanh.',
       type: 'DETECTED',
-      actor: 'FireGuard AI Engine',
+      actor: 'Favis AI Engine',
     },
     {
       id: 'tl-2',
@@ -554,7 +554,7 @@ export const INITIAL_INCIDENT: Incident = {
       title: 'Xác nhận sự cố FIRE_CONFIRMED',
       description: 'Hệ thống tự động kích hoạt mã cảnh báo cấp độ CRITICAL #FG-2026-001.',
       type: 'CREATED',
-      actor: 'FireGuard Backend',
+      actor: 'Favis Backend',
     },
     {
       id: 'tl-3',
@@ -603,7 +603,7 @@ export const INITIAL_NOTIFICATIONS: Notification[] = [
   {
     id: 'notif-003',
     type: 'SYSTEM',
-    title: 'Đồng bộ AI FireGuard hoàn tất',
+    title: 'Đồng bộ AI Favis hoàn tất',
     message: 'Kiểm tra 24 luồng camera định kỳ lúc 14:00:00. 23/24 camera hoạt động bình thường.',
     location: 'Toàn nhà máy',
     severity: 'LOW',
@@ -626,7 +626,7 @@ export const INITIAL_USERS: User[] = [
   {
     id: 'usr-02',
     name: 'Nguyễn Văn A',
-    email: 'nguyenvana@fireguard.vn',
+    email: 'nguyenvana@favis.vn',
     role: 'MANAGER',
     phone: '0988 123 456',
     status: 'ACTIVE',
@@ -636,7 +636,7 @@ export const INITIAL_USERS: User[] = [
   {
     id: 'usr-03',
     name: 'Trần Văn Mạnh',
-    email: 'tranvanmanh@fireguard.vn',
+    email: 'tranvanmanh@favis.vn',
     role: 'SECURITY',
     phone: '0904 555 888',
     status: 'ACTIVE',
@@ -646,7 +646,7 @@ export const INITIAL_USERS: User[] = [
   {
     id: 'usr-04',
     name: 'Lê Hoàng Nam',
-    email: 'lehoangnam@fireguard.vn',
+    email: 'lehoangnam@favis.vn',
     role: 'SECURITY',
     phone: '0936 777 999',
     status: 'ACTIVE',

@@ -1,5 +1,5 @@
 /**
- * Web Audio API based emergency siren / beep simulator for FireGuard AI.
+ * Web Audio API based emergency siren / beep simulator for Favis AI.
  * Safe for browser sandbox without relying on external mp3 assets.
  */
 class SoundManager {

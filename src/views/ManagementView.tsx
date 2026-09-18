@@ -410,7 +410,7 @@ export const ManagementView: React.FC = () => {
       {showAddCamera && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
           <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4">
-            <h3 className="text-base font-bold text-slate-900">Thêm Camera CCTV Vào FireGuard AI</h3>
+            <h3 className="text-base font-bold text-slate-900">Thêm Camera CCTV Vào Favis AI</h3>
 
             <form onSubmit={handleAddCamera} className="space-y-3 text-xs">
               <div>

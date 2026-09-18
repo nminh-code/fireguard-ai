@@ -6,6 +6,7 @@ export interface FireLogoProps {
   variant?: 'icon' | 'badge' | 'full';
   styleVariant?: 'glow-badge' | 'flame-only' | 'shield';
   animated?: boolean;
+  textColor?: string;
 }
 
 export const FireLogo: React.FC<FireLogoProps> = ({
@@ -14,6 +15,7 @@ export const FireLogo: React.FC<FireLogoProps> = ({
   variant = 'full',
   styleVariant = 'glow-badge',
   animated = true,
+  textColor = 'text-white',
 }) => {
   const numericSize = typeof size === 'number' ? size : parseInt(String(size), 10) || 38;
 
@@ -205,8 +207,8 @@ export const FireLogo: React.FC<FireLogoProps> = ({
       {variant === 'full' && (
         <div className="flex flex-col text-left">
           <div className="flex items-baseline gap-1 leading-none">
-            <span className="font-black tracking-tight text-slate-900 text-lg">
-              FIREGUARD
+            <span className={`font-black tracking-tight text-lg ${textColor}`}>
+              FAVIS
             </span>
             <span className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-red-600 via-orange-500 to-amber-500 text-base">
               AI

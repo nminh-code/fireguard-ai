@@ -160,7 +160,7 @@ export const DashboardView: React.FC = () => {
                 </div>
 
                 <p className="text-xs text-red-900 mt-1">
-                  Đám cháy được hệ thống AI FireGuard phát hiện tự động. Yêu cầu bộ phận an ninh và
+                  Đám cháy được hệ thống AI Favis phát hiện tự động. Yêu cầu bộ phận an ninh và
                   đội PCCC cơ sở kiểm tra hiện trường ngay lập tức!
                 </p>
               </div>

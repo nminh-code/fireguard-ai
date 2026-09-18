@@ -77,7 +77,7 @@ export const NotificationsView: React.FC = () => {
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Các cảnh báo nhận diện thời gian thực từ mô hình AI FireGuard và trạng thái mạng CCTV
+            Các cảnh báo nhận diện thời gian thực từ mô hình AI Favis và trạng thái mạng CCTV
           </p>
         </div>
 

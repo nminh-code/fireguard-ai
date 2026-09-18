@@ -221,9 +221,9 @@ class IncidentService {
           id: `tl-1-${Date.now()}`,
           time: timeStr,
           title: 'AI phát hiện đám cháy ngọn lửa bùng phát',
-          description: 'Mô hình FireGuard Vision phát hiện cụm lửa với độ tin cậy 98% và mật độ khói 95% tại khu vực Kệ 04.',
+          description: 'Mô hình Favis Vision phát hiện cụm lửa với độ tin cậy 98% và mật độ khói 95% tại khu vực Kệ 04.',
           type: 'DETECTED',
-          actor: 'FireGuard AI Engine',
+          actor: 'Favis AI Engine',
         },
         {
           id: `tl-2-${Date.now()}`,
@@ -231,7 +231,7 @@ class IncidentService {
           title: 'Hệ thống kích hoạt sự cố FIRE_CONFIRMED',
           description: `Tạo mã sự cố khẩn cấp #${incidentCode}. Cấp độ: CRITICAL.`,
           type: 'CREATED',
-          actor: 'FireGuard Backend',
+          actor: 'Favis Backend',
         },
         {
           id: `tl-3-${Date.now()}`,

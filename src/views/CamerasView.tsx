@@ -99,7 +99,7 @@ export const CamerasView: React.FC = () => {
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Tích hợp toàn bộ luồng RTSP của doanh nghiệp vào AI FireGuard để nhận diện khói & lửa tự động
+            Tích hợp toàn bộ luồng RTSP của doanh nghiệp vào AI Favis để nhận diện khói & lửa tự động
           </p>
         </div>
 

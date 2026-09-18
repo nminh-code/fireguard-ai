@@ -179,7 +179,7 @@ export const CameraTestView: React.FC = () => {
           Connect Real Camera
         </h1>
         <p className="mt-1 text-sm text-slate-600">
-          Connect an existing CCTV/IP camera to FireGuard AI.
+          Connect an existing CCTV/IP camera to Favis AI.
         </p>
       </div>
 

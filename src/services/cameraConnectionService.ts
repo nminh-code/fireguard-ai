@@ -27,7 +27,7 @@ export const CAMERA_API_ENDPOINTS = {
   DISCONNECT: (id: string) => `/api/v1/cameras/${id}/disconnect`,
 };
 
-const STORAGE_KEY = 'fireguard_saved_camera_configs';
+const STORAGE_KEY = 'favis_saved_camera_configs';
 
 const INITIAL_SAVED_CONFIGS: CameraConnectionConfig[] = [];
 
