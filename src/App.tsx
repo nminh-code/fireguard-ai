@@ -9,6 +9,7 @@ import { Sidebar } from './components/Sidebar';
 import { Topbar } from './components/Topbar';
 import { RealtimeToast } from './components/RealtimeToast';
 
+import { AuthView } from './views/AuthView';
 import { DashboardView } from './views/DashboardView';
 import { CamerasView } from './views/CamerasView';
 import { IncidentsView } from './views/IncidentsView';
@@ -21,6 +22,7 @@ import { ManagementView } from './views/ManagementView';
 import { CameraTestView } from './views/CameraTestView';
 
 export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(authService.isLoggedIn());
   const [currentUser, setCurrentUser] = useState<User>(authService.getCurrentUser());
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeIncidentsCount, setActiveIncidentsCount] = useState(0);
@@ -57,6 +59,22 @@ export default function App() {
     setCurrentUser(updated);
   };
 
+  const handleLogout = () => {
+    authService.logout();
+    setIsAuthenticated(false);
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <AuthView
+        onLoginSuccess={() => {
+          setIsAuthenticated(true);
+          setCurrentUser(authService.getCurrentUser());
+        }}
+      />
+    );
+  }
+
   return (
     <BrowserRouter>
       <div className="flex h-screen w-screen overflow-hidden bg-slate-100 font-sans text-slate-900 antialiased selection:bg-red-500 selection:text-white">
@@ -75,6 +93,7 @@ export default function App() {
             onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
             currentUser={currentUser}
             onRoleChange={handleRoleChange}
+            onLogout={handleLogout}
           />
 
           {/* Page Scrollable Area */}

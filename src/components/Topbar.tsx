@@ -12,15 +12,17 @@ import {
   UserCheck,
   Zap,
   CheckCircle2,
+  LogOut,
 } from 'lucide-react';
 
 interface TopbarProps {
   onToggleSidebar: () => void;
   currentUser: User;
   onRoleChange: (role: UserRole) => void;
+  onLogout?: () => void;
 }
 
-export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, onRoleChange }) => {
+export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, onRoleChange, onLogout }) => {
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -28,6 +30,15 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, on
   const [showNotifMenu, setShowNotifMenu] = useState(false);
   const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [isSimulating, setIsSimulating] = useState(false);
+
+  const initials = currentUser.name
+    ? currentUser.name
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .substring(0, 2)
+        .toUpperCase()
+    : 'US';
 
   const loadData = async () => {
     const s = await incidentService.getDashboardStats();
@@ -199,27 +210,27 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, on
           )}
         </div>
 
-        {/* User Profile Badge (Ngọc Minh - Admin) */}
+        {/* User Profile Badge */}
         <div className="relative">
           <button
             onClick={() => setShowRoleMenu(!showRoleMenu)}
             className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 hover:bg-slate-100 px-2.5 py-1 text-xs transition-colors cursor-pointer"
             id="btn-role-switcher"
           >
-            {/* Avatar Pill circle NM */}
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-700 text-white font-bold text-xs">
-              NM
+            {/* Avatar Pill circle */}
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-800 text-white font-bold text-xs">
+              {initials}
             </div>
             <div className="text-left pr-1">
-              <div className="font-bold text-slate-900 leading-tight">Ngọc Minh</div>
-              <div className="text-[10px] text-slate-500 leading-none">Admin</div>
+              <div className="font-bold text-slate-900 leading-tight">{currentUser.name}</div>
+              <div className="text-[10px] text-slate-500 leading-none">{currentUser.role}</div>
             </div>
           </button>
 
           {showRoleMenu && (
-            <div className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 bg-white p-2 shadow-xl z-50">
+            <div className="absolute right-0 mt-2 w-52 rounded-xl border border-slate-200 bg-white p-2 shadow-xl z-50">
               <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1">
-                Role Switcher
+                Chuyển Đổi Vai Trò
               </div>
               {(['ADMIN', 'MANAGER', 'SECURITY'] as UserRole[]).map((r) => (
                 <button
@@ -228,7 +239,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, on
                     onRoleChange(r);
                     setShowRoleMenu(false);
                   }}
-                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium text-left ${
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-medium text-left my-0.5 cursor-pointer ${
                     currentUser.role === r ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'
                   }`}
                 >
@@ -238,6 +249,21 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, on
                   </div>
                 </button>
               ))}
+
+              {onLogout && (
+                <div className="border-t border-slate-100 mt-1.5 pt-1.5">
+                  <button
+                    onClick={() => {
+                      setShowRoleMenu(false);
+                      onLogout();
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors cursor-pointer text-left"
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                    <span>Đăng xuất tài khoản</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
