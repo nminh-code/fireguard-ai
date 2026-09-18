@@ -6,4 +6,5 @@ coverage/
 *.log
 .env*
 !.env.example
+!.env.ai.example
 video-bridge/streams/

@@ -6,6 +6,11 @@
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "bridge": "node video-bridge/server.mjs",
+    "ai:frames": "node ai-pipeline/server.mjs",
+    "ai:frames:start": "node ai-pipeline/control.mjs start",
+    "ai:frames:stop": "node ai-pipeline/control.mjs stop",
+    "ai:frames:status": "node ai-pipeline/control.mjs status",
+    "test:ai": "node --test ai-pipeline/tests/*.test.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
