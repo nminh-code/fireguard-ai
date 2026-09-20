@@ -1,5 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { AlertTriangle, CheckCircle2, Flame, Radio, RefreshCw, ShieldAlert, Wind } from 'lucide-react';
+import { HlsVideoPlayer } from '../components/HlsVideoPlayer';
+import { cameraSessionStore } from '../services/cameraSessionStore';
 import {
   AlertHistoryResponse,
   LatestAlertResponse,
@@ -17,6 +19,10 @@ function AlertTypeIcon({ type }: { type: MonitoringAlert['class'] }) {
 }
 
 export const MonitoringView: React.FC = () => {
+  const cameraSession = useSyncExternalStore(
+    cameraSessionStore.subscribe,
+    cameraSessionStore.getSnapshot
+  );
   const [history, setHistory] = useState<AlertHistoryResponse | null>(null);
   const [latest, setLatest] = useState<MonitoringAlert | null>(null);
   const [newAlertId, setNewAlertId] = useState<string | null>(null);
@@ -113,6 +119,33 @@ export const MonitoringView: React.FC = () => {
           </div>
         )}
       </div>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="font-bold text-slate-900">Camera Live</h2>
+          {cameraSession.activeStream?.connected && (
+            <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+              ONLINE
+            </span>
+          )}
+        </div>
+
+        {cameraSession.activeStream ? (
+          <>
+            <HlsVideoPlayer src={cameraSession.activeStream.playbackUrl} />
+            <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-600">
+              <span>Camera: <strong className="text-slate-900">{cameraSession.activeStream.cameraName}</strong></span>
+              <span>ID: <strong className="text-slate-900">{cameraSession.activeStream.cameraId}</strong></span>
+              <span>Status: <strong className="text-emerald-600">{cameraSession.activeStream.status}</strong></span>
+            </div>
+          </>
+        ) : (
+          <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">
+            Chưa có camera được kết nối. Hãy TEST CONNECTION trong Camera Test.
+          </p>
+        )}
+      </section>
 
       {latest ? (
         <section className={`rounded-xl border-2 p-5 shadow-md ${latest.class === 'fire' ? 'border-red-600 bg-red-50' : 'border-amber-500 bg-amber-50'}`}>

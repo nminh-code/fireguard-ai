@@ -7,7 +7,7 @@ import {
   CameraProtocol,
 } from '../types';
 import { cameraConnectionService } from '../services/cameraConnectionService';
-import { HlsVideoPlayer } from '../components/HlsVideoPlayer';
+import { cameraSessionStore } from '../services/cameraSessionStore';
 import {
   Video,
   Radio,
@@ -24,24 +24,20 @@ import {
 } from 'lucide-react';
 
 export const CameraTestView: React.FC = () => {
+  const initialCameraState = cameraSessionStore.getSnapshot();
+
   // Form State - Empty / Unhardcoded
-  const [formData, setFormData] = useState<CameraConnectionConfig>({
-    id: '',
-    name: '',
-    brand: 'Hikvision',
-    ip: '',
-    port: 554,
-    protocol: 'RTSP',
-    username: '',
-    password: '',
-    streamUrl: '',
-  });
+  const [formData, setFormData] = useState<CameraConnectionConfig>(
+    initialCameraState.formData
+  );
 
   const [showPassword, setShowPassword] = useState(false);
   const [connectionStatus, setConnectionStatus] =
-    useState<CameraConnectionStatus>('NOT_CONNECTED');
+    useState<CameraConnectionStatus>(initialCameraState.connectionStatus);
   const [connectionResult, setConnectionResult] =
-    useState<CameraConnectionResult | null>(null);
+    useState<CameraConnectionResult | null>(
+      initialCameraState.connectionResult
+    );
   const [isTesting, setIsTesting] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
   const [savedCameras, setSavedCameras] = useState<CameraConnectionConfig[]>([]);
@@ -60,11 +56,13 @@ export const CameraTestView: React.FC = () => {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
+    const nextFormData: CameraConnectionConfig = {
+      ...formData,
       [name]:
         name === 'port' ? (value === '' ? '' : Number(value) || value) : value,
-    }));
+    };
+    setFormData(nextFormData);
+    cameraSessionStore.updateDraft(nextFormData);
   };
 
   const handleTestConnection = async (e: React.FormEvent) => {
@@ -88,6 +86,7 @@ export const CameraTestView: React.FC = () => {
     setIsTesting(true);
     setConnectionStatus('CONNECTING');
     setConnectionResult(null);
+    cameraSessionStore.setConnecting(configToTest);
     setSaveSuccessMsg(null);
 
     try {
@@ -95,16 +94,19 @@ export const CameraTestView: React.FC = () => {
       const result = await cameraConnectionService.testConnection(configToTest);
       setConnectionResult(result);
       setConnectionStatus(result.status);
+      cameraSessionStore.setConnectionResult(configToTest, result);
     } catch {
       setConnectionStatus('FAILED');
-      setConnectionResult({
+      const failedResult: CameraConnectionResult = {
         cameraId: assignedId,
         status: 'FAILED',
         streamStatus: 'UNAVAILABLE',
         apiStatus: 'UNAVAILABLE',
         lastChecked: new Date().toLocaleString(),
         errorMessage: 'Không kết nối được video bridge.',
-      });
+      };
+      setConnectionResult(failedResult);
+      cameraSessionStore.setConnectionResult(configToTest, failedResult);
     } finally {
       setIsTesting(false);
     }
@@ -128,18 +130,21 @@ export const CameraTestView: React.FC = () => {
     await cameraConnectionService.saveCamera(configToSave);
     refreshSavedCameras();
     setFormData(configToSave);
+    cameraSessionStore.updateDraft(configToSave);
     setSaveSuccessMsg(`Đã lưu cấu hình ${configToSave.name} thành công.`);
     setTimeout(() => setSaveSuccessMsg(null), 4000);
   };
 
   const handleLoadCamera = (camera: CameraConnectionConfig) => {
     const { model: _model, apiUrl: _apiUrl, ...visibleCameraConfig } = camera;
-    setFormData({
+    const nextFormData: CameraConnectionConfig = {
       ...visibleCameraConfig,
       password: '', // Keep password blank when loading for security
-    });
+    };
+    setFormData(nextFormData);
     setConnectionStatus('NOT_CONNECTED');
     setConnectionResult(null);
+    cameraSessionStore.replaceDraft(nextFormData);
     setSaveSuccessMsg(null);
   };
 
@@ -169,6 +174,7 @@ export const CameraTestView: React.FC = () => {
     setConnectionStatus('NOT_CONNECTED');
     setConnectionResult(null);
     setSaveSuccessMsg(null);
+    cameraSessionStore.resetCameraTest();
   };
 
   return (
@@ -581,18 +587,6 @@ export const CameraTestView: React.FC = () => {
               )}
             </div>
           </div>
-
-          {connectionStatus === 'CONNECTED' && connectionResult?.playbackUrl && (
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-700">Video camera trực tiếp</span>
-                <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" /> LIVE
-                </span>
-              </div>
-              <HlsVideoPlayer src={connectionResult.playbackUrl} />
-            </div>
-          )}
 
           {/* 2. Camera Information Summary (Password is strictly excluded) */}
           <div className="rounded-xl border border-slate-200 bg-white shadow-2xs p-5 space-y-3">
