@@ -4,6 +4,7 @@ import { performance } from 'node:perf_hooks';
 import { RawFrameDecoder } from './raw-frame-decoder.mjs';
 import { LatestFrameQueue } from './latest-frame-queue.mjs';
 import { ProcessorClient } from './processor-client.mjs';
+import { AlertStore } from './alert-store.mjs';
 
 export function extractionArgs(settings, rtspUrl) {
   const { width, height, fps, transport } = settings;
@@ -46,11 +47,15 @@ export class FramePipeline {
     this.received = 0;
     this.processorState = 'IDLE';
     this.closed = Promise.resolve();
+    this.alerts = new AlertStore({
+      cameraId: settings.cameraId, cooldownMs: settings.alertCooldownMs, capacity: settings.alertCapacity,
+    });
   }
 
   start(rtspUrl) {
     if (this.child || this.state === 'STOPPING') throw new Error('PIPELINE_BUSY');
     this.sessionId = randomUUID();
+    this.alerts.beginSession(this.sessionId);
     this.state = 'CONNECTING';
     this.error = null;
     this.latest = null;
@@ -87,7 +92,10 @@ export class FramePipeline {
     });
     this.queue = new LatestFrameQueue(
       frame => this.processor.process(frame),
-      (result, frame) => { this.result = { ...result, sessionId: frame.sessionId, processedAt: new Date().toISOString() }; },
+      (result, frame) => {
+        this.result = { ...result, sessionId: frame.sessionId, processedAt: new Date().toISOString() };
+        this.alerts.record(result, frame);
+      },
       () => { this.processorState = 'FAILED'; this.processorError ||= 'PROCESSOR_INFERENCE_FAILED'; void this.processor.close(); },
       Boolean(processor.ready),
     );
@@ -196,6 +204,7 @@ export class FramePipeline {
       frameFormat: { pixelFormat: 'rgb24', width: this.settings.width, height: this.settings.height, fpsLimit: this.settings.fps },
       receivedFrames: this.received, receivedBytes: this.receivedBytes ?? 0,
       diagnostic: this.diagnostic ?? null,
+      alerts: this.alerts.status(),
       lastFrameAgeMs: this.lastFrameTime == null ? null : Math.round(performance.now() - this.lastFrameTime),
       lastFrameAt: this.latest?.receivedAt ?? null,
       processor: { name: 'yolo-fire-smoke', state: this.processorState,

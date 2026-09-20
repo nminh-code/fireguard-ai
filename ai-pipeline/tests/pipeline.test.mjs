@@ -10,12 +10,127 @@ import { ProcessorClient, processorEnvironment } from '../processor-client.mjs';
 import { FramePipeline, extractionArgs, ffmpegDiagnostic } from '../pipeline.mjs';
 import { createApp } from '../server.mjs';
 import { YoloProcessor } from '../processors/yolo-fire-smoke.mjs';
+import { AlertStore } from '../alert-store.mjs';
 
 // Protocol-only byte payloads and process doubles; never a runtime camera source.
 const settings = readSettings({ AI_FRAME_WIDTH: '32', AI_FRAME_HEIGHT: '32' });
 const byteCount = settings.width * settings.height * 3;
 const payload = () => Buffer.alloc(byteCount, 17);
 const testUrl = 'rtsp://127.0.0.1:554/onvif2';
+
+// Detection fixtures are confined to tests; runtime has no alert injection route.
+const detection = (kind = 'fire', confidence = 0.837) => ({ class: kind, confidence, box: [1, 2, 20, 30] });
+const inference = (frame, detections) => ({
+  processor: 'yolo-fire-smoke', inferencePerformed: true, sequence: frame.sequence, detections,
+});
+function alertHarness(options = {}) {
+  let time = 0;
+  const store = new AlertStore({ cameraId: settings.cameraId, ...options, now: () => time });
+  store.beginSession('session-one');
+  const frame = sequence => ({
+    cameraId: settings.cameraId, sessionId: store.sessionId, sequence,
+    receivedAt: '2026-09-20T00:00:00.000Z', width: 32, height: 32,
+  });
+  const record = (sequence, detections) => { const f = frame(sequence); store.record(inference(f, detections), f); };
+  return { store, frame, record, setTime: value => { time = value; } };
+}
+
+test('alert config is bounded and does not permit disabling spam protection', () => {
+  assert.equal(settings.alertCooldownMs, 30000);
+  assert.equal(settings.alertCapacity, 100);
+  for (const value of ['0', '-1', 'NaN', '9999999']) assert.throws(() => readSettings({ AI_ALERT_COOLDOWN_MS: value }));
+  for (const value of ['0', '1.5', '1001']) assert.throws(() => readSettings({ AI_ALERT_CAPACITY: value }));
+});
+
+test('alerts require successful YOLO, valid geometry and confidence >= 0.5', () => {
+  const { store, frame, record } = alertHarness();
+  const f = frame(1);
+  store.record({ ...inference(f, [detection()]), inferencePerformed: false }, f);
+  store.record({ ...inference(f, [detection()]), processor: 'frame-probe' }, f);
+  store.record(inference({ sequence: 99 }, [detection()]), f);
+  record(1, [null, detection('person'), detection('fire', 0.4999), detection('smoke', NaN),
+    detection('fire', Infinity), detection('fire', 1.01), detection('fire', '0.9'),
+    { ...detection(), box: [1, 2, NaN, 4] }, { ...detection(), box: [1, 2, 3] },
+    { ...detection(), box: [20, 2, 1, 3] }, { ...detection(), box: [-1, 2, 3, 4] },
+    { ...detection(), box: [1, 2, 33, 34] }]);
+  assert.equal(store.latest(), null);
+  record(2, [detection('fire', 0.5), detection('smoke', 1)]);
+  assert.equal(store.list().length, 2);
+  const event = store.list().find(item => item.class === 'fire');
+  assert.match(event.id, /^[0-9a-f-]{36}$/);
+  assert.deepEqual({ ...event, id: undefined }, {
+    id: undefined, cameraId: settings.cameraId, sessionId: 'session-one',
+    class: 'fire', confidence: 0.5, box: [1, 2, 20, 30], boxFormat: 'xyxy',
+    timestamp: f.receivedAt, sequence: 2, width: 32, height: 32,
+  });
+});
+
+test('cooldown emits immediately, chooses strongest box, and does not slide on suppressed frames', () => {
+  const { store, record, setTime } = alertHarness();
+  const strongest = { ...detection('fire', 0.99), box: [3, 4, 25, 31] };
+  record(1, [detection(), strongest]);
+  assert.equal(store.status().totalCreated, 1);
+  assert.equal(store.latest().confidence, 0.99);
+  assert.deepEqual(store.latest().box, strongest.box);
+  strongest.box[0] = 9;
+  assert.equal(store.latest().box[0], 3);
+  assert.throws(() => { store.latest().box[0] = 9; }, TypeError);
+  for (let sequence = 2; sequence <= 30; sequence++) {
+    setTime((sequence - 1) * 1000);
+    record(sequence, [detection()]);
+  }
+  setTime(29999);
+  record(31, [detection()]);
+  assert.equal(store.status().totalCreated, 1);
+  setTime(30000);
+  record(32, [detection()]);
+  assert.equal(store.status().totalCreated, 2);
+  assert.equal(store.latest().sequence, 32);
+  setTime(60000);
+  record(32, [detection()]); // Replay never generates another alert.
+  record(31, [detection()]);
+  assert.equal(store.status().totalCreated, 2);
+});
+
+test('fire/smoke and cameras have independent cooldown; empty detections never emit or reset it', () => {
+  const { store, record, setTime } = alertHarness();
+  record(1, [detection()]);
+  setTime(1000);
+  record(2, []);
+  record(3, [detection(), detection('smoke')]);
+  assert.deepEqual(store.list().map(event => event.class), ['smoke', 'fire']);
+  setTime(60000);
+  record(4, []);
+  assert.equal(store.status().totalCreated, 2);
+  const other = alertHarness({ cameraId: 'another-camera' });
+  const f = { ...other.frame(1), cameraId: 'another-camera' };
+  other.store.record(inference(f, [detection()]), f);
+  assert.equal(other.store.status().totalCreated, 1);
+});
+
+test('bounded history survives session restart, preserves cooldown and rejects old-session/camera results', () => {
+  const { store, record, frame, setTime } = alertHarness({ capacity: 2 });
+  record(1, [detection()]);
+  const oldFrame = frame(2);
+  store.beginSession('session-two');
+  setTime(1000);
+  record(1, [detection()]);
+  assert.equal(store.latest().sessionId, 'session-one');
+  setTime(30000);
+  store.record(inference(oldFrame, [detection()]), oldFrame);
+  const wrongCamera = { ...frame(2), cameraId: 'wrong-camera' };
+  store.record(inference(wrongCamera, [detection()]), wrongCamera);
+  assert.equal(store.status().totalCreated, 1);
+  record(2, [detection()]);
+  setTime(60000);
+  record(3, [detection()]);
+  assert.equal(store.status().totalCreated, 3);
+  assert.equal(store.status().retained, 2);
+  assert.deepEqual(store.list().map(event => event.sequence), [3, 2]);
+  assert.equal(store.list(1)[0].sessionId, 'session-two');
+  store.list().pop();
+  assert.equal(store.status().retained, 2);
+});
 
 test('camera URL is constructed only from backend settings; secrets are not in public settings', () => {
   const env = { AI_RTSP_URL: testUrl, AI_CAMERA_USERNAME: 'unit-user', AI_CAMERA_PASSWORD: 'unit@:#%/?' };
@@ -169,6 +284,106 @@ function harness(processFrame = async frame => ({ sequence: frame.sequence }), o
   };
   return { pipeline: new FramePipeline({ ...settings, ...overrides }, { spawnProcess, processorFactory }), children };
 }
+
+test('pipeline generates alerts only from completed inference and ignores results after stop/restart', async t => {
+  const pending = [];
+  const { pipeline, children } = harness(frame => new Promise(resolve => pending.push(() => resolve(inference(frame, [detection()])))));
+  t.after(() => pipeline.stop());
+  pipeline.start(testUrl);
+  children[0].stdout.write(payload());
+  children[0].stdout.write(payload());
+  assert.equal(pipeline.alerts.latest(), null);
+  assert.equal(children.length, 1);
+  const oldSession = pipeline.sessionId;
+  await pipeline.stop();
+  pipeline.start(testUrl);
+  pending.shift()();
+  await nextTurn();
+  assert.equal(pipeline.alerts.latest(), null);
+  children[1].stdout.write(payload());
+  pending.shift()();
+  await nextTurn();
+  assert.equal(pipeline.alerts.latest().sessionId, pipeline.sessionId);
+  assert.notEqual(pipeline.alerts.latest().sessionId, oldSession);
+  assert.equal(pipeline.alerts.latest().sequence, 1);
+  assert.equal(pipeline.status().processor.inferencePerformed, true);
+  assert.equal(pipeline.status().alerts.totalCreated, 1);
+});
+
+test('alert HTTP API handles empty/history/latest/limits, polling CORS and preserves status API', async t => {
+  let detections = [detection(), detection('fire', 0.7), detection('smoke', 0.6)];
+  const { pipeline, children } = harness(async frame => inference(frame, detections));
+  const server = createApp({ settings, pipeline, ffmpegAvailable: true, getCameraUrl: () => testUrl }).listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(async () => { await pipeline.stop(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); });
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const get = path => fetch(base + path);
+  const post = path => fetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+  const empty = await (await get('/v1/alerts')).json();
+  assert.deepEqual(empty.alerts, []);
+  assert.equal(empty.pipelineState, 'IDLE');
+  assert.equal((await (await get('/v1/alerts/latest')).json()).alert, null);
+  await post('/v1/pipeline/start');
+  children[0].stdout.write(payload());
+  await nextTurn();
+  const response = await get('/v1/alerts');
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  const first = await response.json();
+  assert.equal(first.alerts.length, 2);
+  assert.equal(first.totalCreated, 2);
+  assert.equal(first.pipelineState, 'RUNNING');
+  assert.equal(first.alerts[0].sessionId, pipeline.sessionId);
+  assert.equal(first.alerts[0].cameraId, settings.cameraId);
+  assert.equal(first.alerts[0].sequence, 1);
+  assert.equal(first.alerts[0].timestamp, pipeline.latestFrame().receivedAt);
+  const latest = await (await get('/v1/alerts/latest')).json();
+  assert.deepEqual(latest.alert, first.alerts[0]);
+  assert.equal(latest.latestId, latest.alert.id);
+  assert.deepEqual((await (await get('/v1/alerts?limit=1')).json()).alerts, [latest.alert]);
+  children[0].stdout.write(payload());
+  await nextTurn();
+  detections = [];
+  children[0].stdout.write(payload());
+  await nextTurn();
+  assert.deepEqual((await (await get('/v1/alerts')).json()).alerts, first.alerts);
+  const status = await (await get('/v1/pipeline/status')).json();
+  assert.equal(status.processor.name, 'yolo-fire-smoke');
+  assert.equal(status.processor.processedFrames, 3);
+  assert.equal(status.alerts.totalCreated, 2);
+  for (const query of ['limit=0', 'limit=-1', 'limit=101', 'limit=1.5', 'limit=NaN', 'limit=', 'limit=1&limit=2', 'limit[x]=1', 'other=1']) {
+    assert.equal((await get('/v1/alerts?' + query)).status, 400, query);
+  }
+  for (const origin of ['http://localhost:3000', 'http://127.0.0.1:3000']) {
+    const cors = await fetch(base + '/v1/alerts', { headers: { Origin: origin } });
+    assert.equal(cors.status, 200);
+    assert.equal(cors.headers.get('access-control-allow-origin'), origin);
+    assert.match(cors.headers.get('vary'), /Origin/);
+    const corsLatest = await fetch(base + '/v1/alerts/latest', { headers: { Origin: origin } });
+    assert.equal(corsLatest.status, 200);
+    assert.equal(corsLatest.headers.get('access-control-allow-origin'), origin);
+    const control = await fetch(base + '/v1/pipeline/start', {
+      method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: '{}',
+    });
+    assert.equal(control.status, 403);
+  }
+  const denied = await fetch(base + '/v1/alerts', { headers: { Origin: 'http://localhost:3000.evil.invalid' } });
+  assert.equal(denied.status, 403);
+  assert.equal(denied.headers.get('access-control-allow-origin'), null);
+  assert.equal((await post('/v1/alerts')).status, 404);
+  assert.equal(children.length, 1); // GET polling and repeated start never connect to RTSP.
+  await post('/v1/pipeline/stop');
+  const stopped = await (await get('/v1/alerts')).json();
+  assert.equal(stopped.pipelineState, 'STOPPED');
+  assert.deepEqual(stopped.alerts, first.alerts);
+  await post('/v1/pipeline/start');
+  detections = [detection()];
+  children[1].stdout.write(payload());
+  await nextTurn();
+  const restarted = await (await get('/v1/alerts')).json();
+  assert.notEqual(restarted.sessionId, first.sessionId);
+  assert.deepEqual(restarted.alerts, first.alerts); // Cooldown survives a camera restart.
+});
 
 test('no-frame watchdog fails and closes owned process without an automatic reconnect', { timeout: 5000 }, async t => {
   const { pipeline, children } = harness(undefined, { connectTimeoutMs: 1 });

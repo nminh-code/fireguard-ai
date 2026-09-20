@@ -14,7 +14,13 @@ export function createApp({ settings, pipeline, ffmpegAvailable, getCameraUrl = 
     res.setHeader('X-Content-Type-Options', 'nosniff');
     if (!['127.0.0.1', 'localhost'].includes(req.hostname)) return res.sendStatus(403);
     const origin = req.get('Origin');
-    if (origin && origin !== `http://${req.get('Host')}`) return res.sendStatus(403);
+    const alertRead = req.method === 'GET' && ['/v1/alerts', '/v1/alerts/latest'].includes(req.path);
+    // Read-only polling from the existing Vite frontend; control routes stay same-origin.
+    if (alertRead) res.vary('Origin');
+    if (origin && origin !== `http://${req.get('Host')}`) {
+      if (!alertRead || !['http://localhost:3000', 'http://127.0.0.1:3000'].includes(origin)) return res.sendStatus(403);
+      res.setHeader('Access-Control-Allow-Origin', origin);
+    }
     if (req.method === 'POST' && !req.is('application/json')) return res.sendStatus(415);
     next();
   });
@@ -25,6 +31,20 @@ export function createApp({ settings, pipeline, ffmpegAvailable, getCameraUrl = 
     autoStart: false, inferencePerformed: pipeline.status().processor.inferencePerformed,
   }));
   app.get('/v1/pipeline/status', (_req, res) => res.json(pipeline.status()));
+  const alertContext = () => ({
+    cameraId: settings.cameraId, sessionId: pipeline.sessionId, pipelineState: pipeline.state,
+    ...pipeline.alerts.status(),
+  });
+  app.get('/v1/alerts/latest', (_req, res) => res.json({ ...alertContext(), alert: pipeline.alerts.latest() }));
+  app.get('/v1/alerts', (req, res) => {
+    const limit = req.query.limit === undefined ? pipeline.alerts.capacity : Number(req.query.limit);
+    if (Object.keys(req.query).some(key => key !== 'limit') ||
+        (req.query.limit !== undefined && (typeof req.query.limit !== 'string' || !/^[1-9]\d*$/.test(req.query.limit))) ||
+        !Number.isSafeInteger(limit) || limit < 1 || limit > pipeline.alerts.capacity) {
+      return res.status(400).json({ error: 'INVALID_ALERT_QUERY', maxLimit: pipeline.alerts.capacity });
+    }
+    res.json({ ...alertContext(), alerts: pipeline.alerts.list(limit) });
+  });
   app.post('/v1/pipeline/start', (_req, res) => {
     if (!ffmpegAvailable) return res.status(503).json({ error: 'FFMPEG_UNAVAILABLE', message: 'Set AI_FFMPEG_PATH and restart this service.' });
     if (['CONNECTING', 'RUNNING'].includes(pipeline.state)) return res.json(pipeline.status());

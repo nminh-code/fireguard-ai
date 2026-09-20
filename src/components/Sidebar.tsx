@@ -14,6 +14,7 @@ import {
   X,
   Video,
   Radio,
+  ShieldAlert,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -116,6 +117,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <Video className="h-4 w-4" />
             <span className="tracking-wide">Camera Test</span>
           </button>
+
+          <NavLink
+            to="/monitoring"
+            onClick={onClose}
+            className={({ isActive }) =>
+              `mt-2 flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-xs font-bold transition-all ${
+                isActive
+                  ? 'border-amber-400 bg-amber-500 text-slate-950 shadow-md'
+                  : 'border-slate-700 bg-slate-900/60 text-slate-300 hover:border-amber-500/60 hover:text-white'
+              }`
+            }
+          >
+            <ShieldAlert className="h-4 w-4" />
+            <span className="tracking-wide">Màn hình giám sát</span>
+          </NavLink>
 
           <div className="pt-2">
             {navItems.map((item) => {

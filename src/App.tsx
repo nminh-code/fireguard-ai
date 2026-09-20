@@ -20,6 +20,7 @@ import { NotificationsView } from './views/NotificationsView';
 import { SettingsView } from './views/SettingsView';
 import { ManagementView } from './views/ManagementView';
 import { CameraTestView } from './views/CameraTestView';
+import { MonitoringView } from './views/MonitoringView';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(authService.isLoggedIn());
@@ -111,6 +112,7 @@ export default function App() {
                 <Route path="/management" element={<ManagementView />} />
                 <Route path="/camera-test" element={<CameraTestView />} />
                 <Route path="/camera-connect" element={<CameraTestView />} />
+                <Route path="/monitoring" element={<MonitoringView />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </div>

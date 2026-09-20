@@ -36,6 +36,8 @@ export function readSettings(env = process.env) {
     python: env.AI_PYTHON_PATH || 'py',
     model: path.resolve(root, env.AI_MODEL_PATH || 'models/best.pt'),
     confidence: numberSetting(env, 'AI_CONFIDENCE', 0.5, 0, 1, false),
+    alertCooldownMs: numberSetting(env, 'AI_ALERT_COOLDOWN_MS', 30000, 1000, 3600000),
+    alertCapacity: numberSetting(env, 'AI_ALERT_CAPACITY', 100, 1, 1000),
   });
 }
 
