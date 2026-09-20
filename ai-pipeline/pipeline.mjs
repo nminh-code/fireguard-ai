@@ -20,8 +20,20 @@ export function extractionArgs(settings, rtspUrl) {
   ];
 }
 
+// Return only fixed codes; never expose FFmpeg lines containing URLs/secrets.
+export function ffmpegDiagnostic(text) {
+  if (/401|unauthorized|403 forbidden/i.test(text)) return 'RTSP_AUTH_FAILED';
+  if (/461|unsupported transport/i.test(text)) return 'RTSP_TRANSPORT_UNSUPPORTED';
+  if (/connection refused/i.test(text)) return 'RTSP_CONNECTION_REFUSED';
+  if (/permission denied|operation not permitted/i.test(text)) return 'RTSP_ACCESS_DENIED';
+  if (/timed out/i.test(text)) return 'RTSP_TIMEOUT';
+  if (/no route to host|network is unreachable/i.test(text)) return 'RTSP_NETWORK_UNREACHABLE';
+  if (/error while decoding|invalid data found/i.test(text)) return 'RTSP_DECODE_ERROR';
+  return null;
+}
+
 export class FramePipeline {
-  constructor(settings, { spawnProcess = spawn, processorFactory = timeout => new ProcessorClient(timeout) } = {}) {
+  constructor(settings, { spawnProcess = spawn, processorFactory = timeout => new ProcessorClient(timeout, { settings }) } = {}) {
     this.settings = settings;
     this.spawnProcess = spawnProcess;
     this.processorFactory = processorFactory;
@@ -47,7 +59,10 @@ export class FramePipeline {
     this.started = performance.now();
     this.queue = null;
     this.lastFrameTime = null;
-    this.processorState = 'READY';
+    this.processorState = 'LOADING';
+    this.diagnostic = null;
+    this.receivedBytes = 0;
+    this.processorError = null;
     try {
       this.processor = this.processorFactory(this.settings.processTimeoutMs);
     } catch {
@@ -56,10 +71,25 @@ export class FramePipeline {
       this.error = 'PROCESSOR_START_FAILED';
       return this.status();
     }
+    const processor = this.processor;
+    const sessionId = this.sessionId;
+    Promise.resolve(processor.ready).then(() => {
+      if (this.sessionId === sessionId && this.processorState === 'LOADING') {
+        this.processorState = 'READY';
+        this.queue?.resume();
+      }
+    }, () => {
+      if (this.sessionId === sessionId && this.processorState === 'LOADING') {
+        this.processorState = 'FAILED';
+        this.processorError = 'PROCESSOR_LOAD_FAILED';
+        this.queue?.close();
+      }
+    });
     this.queue = new LatestFrameQueue(
       frame => this.processor.process(frame),
       (result, frame) => { this.result = { ...result, sessionId: frame.sessionId, processedAt: new Date().toISOString() }; },
-      () => { this.processorState = 'FAILED'; void this.processor.close(); },
+      () => { this.processorState = 'FAILED'; this.processorError ||= 'PROCESSOR_INFERENCE_FAILED'; void this.processor.close(); },
+      Boolean(processor.ready),
     );
     const decoder = new RawFrameDecoder(this.settings.width * this.settings.height * 3, data => {
       if (!['CONNECTING', 'RUNNING'].includes(this.state)) return;
@@ -105,10 +135,14 @@ export class FramePipeline {
         resolve();
       });
     });
-    child.stdout.on('data', data => decoder.push(data));
+    child.stdout.on('data', data => { this.receivedBytes += data.length; decoder.push(data); });
     child.once('error', () => this.fail('FFMPEG_START_FAILED'));
     // Drain but never log raw FFmpeg diagnostics: these may contain RTSP secrets.
-    child.stderr.on('data', () => {});
+    let diagnostics = '';
+    child.stderr.on('data', data => {
+      diagnostics = (diagnostics + data.toString()).slice(-4096);
+      this.diagnostic = ffmpegDiagnostic(diagnostics) || this.diagnostic;
+    });
     this.watchdog = setInterval(() => {
       const elapsed = performance.now() - (this.lastFrameTime ?? this.started);
       const limit = this.lastFrameTime === null ? this.settings.connectTimeoutMs : this.settings.staleMs;
@@ -160,10 +194,12 @@ export class FramePipeline {
       state: this.state, error: this.error, cameraId: this.settings.cameraId, sessionId: this.sessionId,
       source: 'RTSP', transport: this.settings.transport,
       frameFormat: { pixelFormat: 'rgb24', width: this.settings.width, height: this.settings.height, fpsLimit: this.settings.fps },
-      receivedFrames: this.received,
+      receivedFrames: this.received, receivedBytes: this.receivedBytes ?? 0,
+      diagnostic: this.diagnostic ?? null,
       lastFrameAgeMs: this.lastFrameTime == null ? null : Math.round(performance.now() - this.lastFrameTime),
       lastFrameAt: this.latest?.receivedAt ?? null,
-      processor: { name: 'frame-probe', state: this.processorState, inferencePerformed: false,
+      processor: { name: 'yolo-fire-smoke', state: this.processorState,
+        error: this.processorError ?? null, inferencePerformed: this.result?.inferencePerformed === true,
         processedFrames: this.queue?.processed ?? 0, droppedFrames: this.queue?.dropped ?? 0,
         busy: this.queue?.busy ?? false, pendingFrames: this.queue?.pending ? 1 : 0,
         lastResult: this.result },

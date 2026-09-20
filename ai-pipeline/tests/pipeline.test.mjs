@@ -6,9 +6,10 @@ import { setImmediate as nextTurn } from 'node:timers/promises';
 import { readSettings, cameraUrl } from '../config.mjs';
 import { RawFrameDecoder } from '../raw-frame-decoder.mjs';
 import { LatestFrameQueue } from '../latest-frame-queue.mjs';
-import { ProcessorClient } from '../processor-client.mjs';
-import { FramePipeline, extractionArgs } from '../pipeline.mjs';
+import { ProcessorClient, processorEnvironment } from '../processor-client.mjs';
+import { FramePipeline, extractionArgs, ffmpegDiagnostic } from '../pipeline.mjs';
 import { createApp } from '../server.mjs';
+import { YoloProcessor } from '../processors/yolo-fire-smoke.mjs';
 
 // Protocol-only byte payloads and process doubles; never a runtime camera source.
 const settings = readSettings({ AI_FRAME_WIDTH: '32', AI_FRAME_HEIGHT: '32' });
@@ -93,22 +94,42 @@ test('closing queue discards pending and ignores a late processor result', async
   assert.equal(queue.pending, null);
 });
 
-test('actual worker checks bytes and checksum without inference or detaching original data', async t => {
-  const client = new ProcessorClient(5000);
+class ReplyWorker extends EventEmitter {
+  stdout = new PassThrough();
+  stderr = new PassThrough();
+  constructor(_url, options) {
+    super(); this.options = options;
+    queueMicrotask(() => this.emit('message', { type: 'ready' }));
+  }
+  postMessage(message) {
+    if (message.type === 'close') { this.emit('message', { type: 'closed' }); return; }
+    this.frame = message.frame;
+    queueMicrotask(() => this.emit('message', {
+      type: 'result', ok: this.frame.data.length > 1,
+      result: { processor: 'yolo-fire-smoke', inferencePerformed: true, sequence: this.frame.sequence, detections: [] },
+    }));
+  }
+  async terminate() { return 0; }
+}
+
+test('client passes model config and isolates credentials without detaching original data', async t => {
+  const client = new ProcessorClient(5000, { WorkerType: ReplyWorker, settings });
   t.after(() => client.close());
   const data = payload();
   const result = await client.process({ data, width: 32, height: 32, pixelFormat: 'rgb24', sequence: 1 });
-  assert.equal(result.bytes, byteCount);
-  assert.equal(result.inferencePerformed, false);
-  assert.match(result.sha256, /^[0-9a-f]{64}$/);
+  assert.equal(result.inferencePerformed, true);
+  assert.equal(result.sequence, 1);
   assert.equal(data.byteLength, byteCount);
-  assert.equal(data[0], 17);
+  assert.notEqual(client.worker.frame.data.buffer, data.buffer);
+  assert.equal(client.worker.options.workerData.confidence, 0.5);
+  assert.match(client.worker.options.workerData.model, /models[\\/]best.pt$/);
+  assert.deepEqual(processorEnvironment({ Path: 'runtime', SystemRoot: 'windows', AI_CAMERA_PASSWORD: 'secret', AI_RTSP_URL: 'secret' }), { Path: 'runtime', SystemRoot: 'windows' });
 });
 
 test('worker failure does not expose input or exception details', async t => {
-  const client = new ProcessorClient(5000);
+  const client = new ProcessorClient(5000, { WorkerType: ReplyWorker });
   t.after(() => client.close());
-  await assert.rejects(client.process({ data: new Uint8Array(1), width: 32, height: 32, pixelFormat: 'rgb24' }), /PROCESSOR_FAILED/);
+  await assert.rejects(client.process({ data: new Uint8Array(1) }), /PROCESSOR_FAILED/);
 });
 
 test('unresponsive processor is terminated after timeout, not left in the queue', async () => {
@@ -120,7 +141,9 @@ test('unresponsive processor is terminated after timeout, not left in the queue'
     async terminate() { terminated = true; return 0; }
   }
   const client = new ProcessorClient(10, { WorkerType: SilentWorker });
+  client.worker.emit('message', { type: 'ready' });
   await assert.rejects(client.process({ data: new Uint8Array(3) }), /PROCESSOR_UNAVAILABLE/);
+  await client.close();
   assert.equal(terminated, true);
   assert.equal(client.closed, true);
   await assert.rejects(client.process({ data: new Uint8Array(3) }), /PROCESSOR_UNAVAILABLE/);
@@ -266,4 +289,157 @@ test('HTTP API is idle by default, start idempotent, raw bytes exact, no credent
   })).status, 400);
   await post('/v1/pipeline/stop');
   assert.equal((await fetch(base + '/v1/frames/latest')).status, 503);
+});
+
+test('model loading retains only latest frame before first inference', async () => {
+  const seen = [];
+  const queue = new LatestFrameQueue(async frame => { seen.push(frame.sequence); }, () => {}, () => {}, true);
+  for (let i = 1; i <= 100; i++) queue.offer({ sequence: i });
+  assert.deepEqual(seen, []);
+  assert.equal(queue.pending.sequence, 100);
+  assert.equal(queue.dropped, 99);
+  queue.resume();
+  await nextTurn();
+  assert.deepEqual(seen, [100]);
+  queue.close();
+});
+
+test('status identifies YOLO and reports success only after a completed inference', async t => {
+  const { pipeline, children } = harness(async frame => ({
+    processor: 'yolo-fire-smoke', inferencePerformed: true,
+    sequence: frame.sequence, timestamp: frame.receivedAt, detections: [],
+  }));
+  t.after(() => pipeline.stop());
+  pipeline.start(testUrl);
+  assert.equal(pipeline.status().processor.name, 'yolo-fire-smoke');
+  assert.equal(pipeline.status().processor.inferencePerformed, false);
+  children[0].stdout.write(payload());
+  await nextTurn();
+  const status = pipeline.status();
+  assert.equal(status.processor.inferencePerformed, true);
+  assert.equal(status.processor.lastResult.sequence, 1);
+  assert.equal(status.processor.lastResult.timestamp, status.lastFrameAt);
+  assert.equal(status.receivedBytes, byteCount);
+});
+
+test('FFmpeg diagnostics handle split messages and never publish raw credentials', async t => {
+  const { pipeline, children } = harness();
+  t.after(() => pipeline.stop());
+  pipeline.start(testUrl);
+  children[0].stderr.write('rtsp://user:private@camera/onvif2: 401 Unauth');
+  children[0].stderr.write('orized');
+  assert.equal(pipeline.status().diagnostic, 'RTSP_AUTH_FAILED');
+  assert.ok(!JSON.stringify(pipeline.status()).includes('private'));
+  assert.equal(ffmpegDiagnostic('Connection refused'), 'RTSP_CONNECTION_REFUSED');
+  assert.equal(ffmpegDiagnostic('arbitrary private text'), null);
+});
+
+function pythonDouble() {
+  const child = new EventEmitter();
+  child.pid = undefined;
+  child.stdout = new PassThrough();
+  child.stderr = new PassThrough();
+  child.stdin = new PassThrough();
+  child.exitCode = null;
+  child.signalCode = null;
+  child.kill = () => { child.signalCode = 'SIGTERM'; queueMicrotask(() => child.emit('close')); };
+  return child;
+}
+
+test('YOLO bridge frames binary RGB, correlates results, rejects busy/error responses and reaps Python', async t => {
+  const child = pythonDouble();
+  const adapter = new YoloProcessor({}, { spawnProcess: () => child });
+  t.after(() => adapter.stopYolo());
+  const ready = adapter.ensureYolo();
+  child.stdout.write('{"type":"rea');
+  child.stdout.write('dy"}\n');
+  await ready;
+  const frame = { data: payload(), width: 32, height: 32, pixelFormat: 'rgb24', sequence: 7, receivedAt: '2026-09-19T00:00:00.000Z' };
+  const resultPromise = adapter.inferFrame(frame);
+  await nextTurn();
+  await assert.rejects(adapter.inferFrame(frame), /YOLO_UNAVAILABLE/);
+  const written = child.stdin.read();
+  const newline = written.indexOf(10);
+  assert.equal(JSON.parse(written.subarray(0, newline)).timestamp, frame.receivedAt);
+  assert.deepEqual(written.subarray(newline + 1), frame.data);
+  child.stdout.write(JSON.stringify({ type: 'result', ok: true, sequence: 7, detections: [{ class: 'fire', confidence: 0.9, box: [1, 2, 3, 4], sequence: 7, timestamp: frame.receivedAt }] }) + '\n');
+  const result = await resultPromise;
+  assert.equal(result.inferencePerformed, true);
+  assert.equal(result.timestamp, frame.receivedAt);
+  assert.equal(result.detections[0].class, 'fire');
+  const failed = adapter.inferFrame({ ...frame, sequence: 8 });
+  await nextTurn();
+  child.stdout.write('{"type":"result","ok":false}\n');
+  await assert.rejects(failed, /YOLO_INFERENCE_FAILED/);
+  await adapter.stopYolo();
+  assert.equal(child.signalCode, 'SIGTERM');
+});
+
+test('YOLO spawn failure and unexpected exit reject readiness/in-flight inference', async () => {
+  const bad = pythonDouble();
+  const adapter = new YoloProcessor({}, { spawnProcess: () => bad });
+  const ready = adapter.ensureYolo();
+  bad.emit('error', new Error('secret path'));
+  await assert.rejects(ready, /YOLO_START_FAILED/);
+  await adapter.stopYolo();
+  const child = pythonDouble();
+  const running = new YoloProcessor({}, { spawnProcess: () => child });
+  const loaded = running.ensureYolo();
+  child.stdout.write('{"type":"ready"}\n');
+  await loaded;
+  const inference = running.inferFrame({ data: payload(), width: 32, height: 32, pixelFormat: 'rgb24', sequence: 1 });
+  await nextTurn();
+  child.exitCode = 1;
+  child.emit('close');
+  await assert.rejects(inference, /YOLO_PROCESS_EXITED/);
+  await running.stopYolo();
+});
+
+test('real FFmpeg RGB -> queue -> YOLO best.pt -> HTTP status, then reap owned processes', {
+  skip: process.env.AI_TEST_YOLO !== '1', timeout: 150000,
+}, async t => {
+  const { spawn } = await import('node:child_process');
+  const { setTimeout: delay } = await import('node:timers/promises');
+  const { loadEnvironment } = await import('../config.mjs');
+  loadEnvironment();
+  const actualSettings = readSettings();
+  let spawns = 0;
+  const pipeline = new FramePipeline({ ...actualSettings, connectTimeoutMs: 60000 }, {
+    spawnProcess: (executable, _cameraArgs, options) => {
+      spawns++;
+      return spawn(executable, [
+        '-hide_banner', '-loglevel', 'error', '-nostdin', '-re',
+        '-f', 'lavfi', '-i', `testsrc=size=${actualSettings.width}x${actualSettings.height}:rate=1`,
+        '-pix_fmt', 'rgb24', '-threads', '1', '-f', 'rawvideo', 'pipe:1',
+      ], options);
+    },
+  });
+  const server = createApp({ settings: actualSettings, pipeline, ffmpegAvailable: true, getCameraUrl: () => testUrl }).listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(async () => { await pipeline.stop(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); });
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const post = action => fetch(`${base}/v1/pipeline/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+  assert.equal((await post('start')).status, 202);
+  assert.equal((await post('start')).status, 200);
+  const deadline = Date.now() + 130000;
+  while (pipeline.status().processor.processedFrames < 2 && Date.now() < deadline) {
+    assert.notEqual(pipeline.state, 'FAILED');
+    assert.notEqual(pipeline.processorState, 'FAILED');
+    await delay(200);
+  }
+  const status = await (await fetch(`${base}/v1/pipeline/status`)).json();
+  assert.equal(status.state, 'RUNNING');
+  assert.equal(status.processor.name, 'yolo-fire-smoke');
+  assert.equal(status.processor.inferencePerformed, true);
+  assert.ok(status.processor.processedFrames >= 2);
+  assert.ok(status.processor.pendingFrames <= 1);
+  assert.equal(status.processor.lastResult.timestamp, status.processor.lastResult.receivedAt);
+  assert.ok(Array.isArray(status.processor.lastResult.detections));
+  assert.equal(spawns, 1);
+  const pythonPid = pipeline.processor.pythonPid;
+  assert.ok(pythonPid > 0);
+  await post('stop');
+  assert.equal(pipeline.status().processor.state, 'STOPPED');
+  assert.equal(pipeline.processor.pythonPid, null);
+  assert.throws(() => process.kill(pythonPid, 0), { code: 'ESRCH' });
 });

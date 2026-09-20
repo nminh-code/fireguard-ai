@@ -31,7 +31,11 @@ export function readSettings(env = process.env) {
     height: numberSetting(env, 'AI_FRAME_HEIGHT', 720, 32, 720),
     staleMs: numberSetting(env, 'AI_FRAME_STALE_MS', 15000, 10000, 60000),
     connectTimeoutMs: numberSetting(env, 'AI_CONNECT_TIMEOUT_MS', 25000, 10000, 60000),
-    processTimeoutMs: numberSetting(env, 'AI_PROCESS_TIMEOUT_MS', 5000, 1000, 30000),
+    processTimeoutMs: numberSetting(env, 'AI_PROCESS_TIMEOUT_MS', 30000, 1000, 120000),
+    modelLoadTimeoutMs: numberSetting(env, 'AI_MODEL_LOAD_TIMEOUT_MS', 120000, 1000, 300000),
+    python: env.AI_PYTHON_PATH || 'py',
+    model: path.resolve(root, env.AI_MODEL_PATH || 'models/best.pt'),
+    confidence: numberSetting(env, 'AI_CONFIDENCE', 0.5, 0, 1, false),
   });
 }
 

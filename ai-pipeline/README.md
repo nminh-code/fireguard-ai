@@ -1,42 +1,29 @@
-# Backend lấy frame cho AI
+# AI frame pipeline + YOLO fire/smoke
 
-HLS hiện tại giữ nguyên. Backend này độc lập, không đọc playlist/segment HLS,
-không chụp trình duyệt, không ghi ảnh ra đĩa và chưa chạy model khói/lửa.
+Camera `/onvif2` → một FFmpeg của AI → RGB24 → latest-frame queue → worker → một Python/Ultralytics → API status.
 
-```text
-Camera /onvif2 ── RTSP ── FFmpeg bridge hiện tại ── HLS ── React
-       │
-       └──────── RTSP ── FFmpeg riêng (1 decoder thread)
-                         │ chọn tối đa 1 frame/s, RGB24 640×720
-                         ▼
-                    RawFrameDecoder (ghép chunk stdout)
-                         ├── latest frame trong RAM ── GET /v1/frames/latest
-                         └── LatestFrameQueue ── worker thread ── frame-probe
-                             1 đang xử lý + 1 chờ               metadata/checksum
-```
+Video-bridge/HLS/Camera Test không thay đổi. YOLO chỉ nhận bytes qua stdin, không mở RTSP, không lưu ảnh. Nhánh AI dùng kết nối RTSP đã có của pipeline; HLS vẫn có kết nối riêng theo kiến trúc hiện tại. Không tự retry hoặc mở thêm kết nối để fallback transport.
 
-## Chạy trên Windows
+## Chạy
 
-Từ thư mục gốc, tạo `.env.ai.local` bằng cách copy `.env.ai.example` nếu chưa có.
-Điền `AI_CAMERA_USERNAME` và `AI_CAMERA_PASSWORD` bằng editor cục bộ; không đưa
-credential vào source code, terminal command, chat hoặc RTSP URL trong React.
-Giá trị chứa `#`/khoảng trắng cần đặt trong dấu nháy theo cú pháp dotenv.
+Cấu hình backend trong `.env.ai.local` (không commit):
 
-```dotenv
-AI_RTSP_URL=rtsp://192.168.1.5:554/onvif2
-```
+- `AI_RTSP_URL`: URL không chứa credential, đường dẫn `/onvif2`.
+- `AI_CAMERA_USERNAME`, `AI_CAMERA_PASSWORD`: thông tin camera; không log hoặc gửi vào worker.
+- `AI_FFMPEG_PATH`, `AI_PYTHON_PATH`: executable đã cài trên máy.
+- `AI_MODEL_PATH=models/best.pt`: mặc định trỏ tới model trong project, độc lập working directory.
+- `AI_CONFIDENCE=0.5`.
+- `AI_MODEL_LOAD_TIMEOUT_MS=120000`: timeout tải model và warmup.
+- `AI_PROCESS_TIMEOUT_MS`: timeout inference từng frame, mặc định 30000 ms.
+- `AI_RTSP_TRANSPORT=udp`: giữ cấu hình transport hiện tại; hỗ trợ `tcp` nếu camera/mạng yêu cầu.
 
-Giữ URL ONVIF2 hiện tại. Nếu FFmpeg không nằm trong PATH, đặt `AI_FFMPEG_PATH`
-trỏ tới executable thực tế, ví dụ `D:/ffmpeg-9.0.1-essentials_build/bin/ffmpeg.exe`.
-Biến môi trường đã có trong shell được ưu tiên hơn `.env.ai.local`.
-
-Terminal riêng, không cần dừng HLS/React:
+Sau khi đổi code, dừng và chạy lại terminal **AI frame service** để nạp code mới:
 
 ```powershell
 npm run ai:frames
 ```
 
-Service khởi động ở trạng thái `IDLE`, chưa kết nối camera. Từ terminal khác:
+Terminal khác:
 
 ```powershell
 npm run ai:frames:start
@@ -44,95 +31,60 @@ npm run ai:frames:status
 npm run ai:frames:stop
 ```
 
-`start` trả `202 CONNECTING`; chỉ khi nhận đủ một frame thật mới chuyển `RUNNING`.
-`processedFrames` chỉ tăng khi worker thực sự xử lý xong. `start` khi đang chạy
-là idempotent, không mở thêm kết nối. Sau khi stop hoặc fail, start tạo session
-mới, không trả frame cũ. Không tự reconnect để tránh vòng lặp làm quá tải camera.
+Không cần restart video-bridge/HLS/React. Start là idempotent, không tạo thêm FFmpeg khi đang CONNECTING/RUNNING. Stop chỉ dừng FFmpeg/worker/Python thuộc pipeline AI.
 
-## HTTP API local — cổng 8790
+## API và kết quả
 
-| Method/path | Nội dung |
+API chỉ bind `127.0.0.1:8790`, không auto-start. POST cần JSON `{}`.
+
+| Endpoint | Nội dung |
 |---|---|
-| `GET /health` | Backend/FFmpeg sẵn sàng; không có nghĩa camera đã kết nối |
-| `POST /v1/pipeline/start` | Body `{}`, cấu hình/credential đọc từ backend |
-| `POST /v1/pipeline/stop` | Dừng duy nhất FFmpeg và worker thuộc backend này |
-| `GET /v1/pipeline/status` | Trạng thái, session, số frame, tuổi frame, worker/checksum |
-| `GET /v1/frames/latest` | Buffer RGB24 mới nhất hoặc `503 NO_FRESH_FRAME` |
+| `GET /health` | FFmpeg có sẵn, có inference thành công trong session hay chưa |
+| `POST /v1/pipeline/start` | Bắt đầu lấy frame |
+| `POST /v1/pipeline/stop` | Dừng pipeline AI |
+| `GET /v1/pipeline/status` | Frame counters, processor, kết quả gần nhất |
+| `GET /v1/frames/latest` | RGB24 mới nhất hoặc 503 nếu không còn frame live |
 
-POST cần `Content-Type: application/json`. Service chỉ bind `127.0.0.1`, không
-bật CORS cho web khác và không cần proxy Vite. Đây là API phát triển local; chưa
-có xác thực để triển khai public/LAN. Mọi response dùng `Cache-Control: no-store`.
+`processor.name` luôn là `yolo-fire-smoke`. State tải model là `LOADING`, sau warmup là `READY`; chỉ sau xử lý thành công frame nguồn mới có `inferencePerformed: true`. Một frame không có detection vẫn là inference thành công. Warmup không được tính vào số frame hoặc inferencePerformed.
 
-Frame API trả `application/octet-stream`, **không phải JPEG**. Header gồm
-`X-Frame-Format`, `X-Frame-Width`, `X-Frame-Height`, `X-Frame-Sequence`,
-`X-Frame-Received-At`, `X-Frame-Session-Id`. Mỗi frame mặc định có
-`640 * 720 * 3 = 1,382,400 bytes`, layout `[height, width, 3]`, thứ tự **RGB**,
-row-major. Nếu nguồn có kích thước khác, scale giữ tỷ lệ và pad vào kích thước
-cấu hình. Timestamp là lúc backend nhận đủ frame, không phải giờ chụp của camera.
-Sequence thuộc từng session; nhiều GET trong một giây có thể nhận cùng sequence.
+Ví dụ cấu trúc `processor.lastResult` (minh hoạ, không phải detection camera đã xác minh):
 
-## Điểm thay module khi tích hợp model sau này
-
-`processor-worker.mjs` hiện import `processFrame` từ `processors/frame-probe.mjs`.
-Thay import đó bằng adapter model; tải model một lần ở mức module. Contract:
-
-```js
-export async function processFrame(frame) {
-  // frame.data: Uint8Array RGB24
-  // frame.width, height, pixelFormat, sequence, receivedAt, cameraId, sessionId
-  // Return a small structured-clone-compatible object. No frame buffer in result.
+```json
+{
+  "processor": "yolo-fire-smoke",
+  "inferencePerformed": true,
+  "sequence": 42,
+  "timestamp": "2026-09-19T00:00:00.000Z",
+  "boxFormat": "xyxy",
+  "detections": [
+    {
+      "class": "fire",
+      "confidence": 0.91,
+      "box": [10, 20, 100, 200],
+      "sequence": 42,
+      "timestamp": "2026-09-19T00:00:00.000Z"
+    }
+  ]
 }
 ```
 
-Worker không nhận URL/credential và không thừa hưởng env chứa password. Dữ liệu
-frame được copy một lần rồi transfer cho worker, để API vẫn giữ buffer gốc.
-Không tạo worker cho mỗi frame. Model CPU-bound không được chạy trong event loop
-của API. Nếu sau này dùng Python/GPU service, thay `ProcessorClient` bằng adapter
-IPC tương ứng, giữ contract frame và chính sách hàng đợi.
+Class chỉ gồm `fire`/`smoke`; model được kiểm tra tên class khi load. Box là `[x1,y1,x2,y2]` theo pixel trên frame RGB đã scale/pad (mặc định 640×720), không phải kích thước RTSP gốc. Timestamp là lúc backend nhận đủ frame, không phải giờ camera chụp. Kết quả còn có cameraId, width, height, sessionId và processedAt. Sequence bắt đầu lại cho mỗi session. `lastResult` là kết quả gần nhất của session, có thể cũ sau STOPPED/FAILED; luôn kiểm tra state/timestamp trước khi dùng như dữ liệu live.
 
-`frame-probe` chỉ xác nhận số byte và SHA-256 của frame thật; luôn trả
-`inferencePerformed: false`, không sinh kết quả phát hiện khói/lửa. Checksum thay
-đổi là dấu hiệu nội dung thay đổi, không phải thước đo nhận diện.
+Ultralytics nhận NumPy theo BGR; adapter chuyển RGB24 → BGR trước khi predict ([tài liệu](https://docs.ultralytics.com/modes/predict/)).
 
-## Giới hạn tải và lỗi
+## Queue, vòng đời và chẩn đoán
 
-- Mặc định tối đa 1 FPS, cấu hình 0.2–5 FPS; tối đa 640×720. Bộ chọn frame bỏ bớt
-  frame camera, không thêm frame lặp để bù thời gian.
-- Chỉ một FFmpeg ingest và một worker cho backend này. Decoder/encoder/filter
-  giới hạn một thread. Queue giữ một frame chờ, luôn ưu tiên frame mới nhất.
-- RAM không tăng theo thời gian: frame mới nhất, một frame đang ghép, một đang
-  xử lý, một chờ và bản copy worker; không có thư mục snapshot hoặc lưu lịch sử.
-- Worker quá thời gian (mặc định 5 giây) hoặc lỗi: processor `FAILED`; ingest và
-  latest-frame API vẫn hoạt động. Stop/start để khởi tạo lại worker. Worker có
-  giới hạn JS heap 128 MB; không phải giới hạn cứng tổng RAM/native allocation
-  của model tương lai.
-- Không nhận frame đầu trong 25 giây: `NO_FRAMES_TIMEOUT`. Sau khi đang chạy,
-  15 giây không có frame mới: `FRAME_STALLED`. FFmpeg thoát: `RTSP_ENDED`.
-  Thất bại không trả lại ảnh cũ như frame live.
-- Không log stderr FFmpeg, URL, password, request body hoặc exception model.
-  Không lưu credential vào localStorage/ảnh/log. Credential chỉ nằm trong env
-  backend và tham số tiến trình FFmpeg; admin máy vẫn có thể đọc chúng qua OS.
+- Chỉ một inference đang chạy, tối đa một frame pending. Frame mới thay frame pending cũ. Khi model đang load, chỉ giữ frame mới nhất, chưa gửi frame sang Python.
+- Python tải model một lần mỗi session; worker không thừa hưởng toàn bộ env, chỉ các biến runtime cần thiết. Model options truyền qua workerData.
+- Python exit, spawn/pipe/protocol/inference lỗi đều reject; không coi `{ok:false}` là inference thành công.
+- Stop/timeout đóng Python trước khi terminate worker, có fallback dừng PID Python thuộc worker đó.
+- Processor FAILED không dừng ingest; latest-frame API vẫn hoạt động, queue đóng để không tích backlog. Stop/start để khởi tạo lại.
+- `receivedFrames=0` nghĩa là FFmpeg chưa cung cấp đủ một frame RGB, độc lập YOLO. `receivedBytes` cho biết có byte/partial frame hay không.
+- `NO_FRAMES_TIMEOUT`: không nhận đủ frame trong connect timeout (mặc định 25 giây). `FRAME_STALLED`: ngừng nhận frame sau khi đã RUNNING.
+- `diagnostic` chỉ trả mã cố định khi FFmpeg báo lỗi, như RTSP_AUTH_FAILED, RTSP_TIMEOUT, RTSP_CONNECTION_REFUSED, RTSP_TRANSPORT_UNSUPPORTED. Null nghĩa là chưa có thông báo khớp, không có nghĩa kết nối đã thành công.
+- Không log stderr FFmpeg/Python, RTSP URL hoặc credential. Không thay đổi decoder và không tạo thư mục snapshot.
 
-## Kiểm chứng đồng thời với HLS thật
-
-Một kết nối RTSP thứ hai vẫn tiêu thụ thêm băng thông và session của camera.
-Lấy 1 FPS chỉ giảm tải bước xử lý phía sau, không giảm FPS RTSP truyền tới FFmpeg.
-Không thể cam kết camera Yoosee hỗ trợ hai phiên chỉ bằng việc tách tiến trình.
-
-1. Giữ HLS/React hiện tại đang chạy, ghi nhận playlist/session và video live.
-2. Chạy service này, bấm lệnh start bằng cấu hình thật trong `.env.ai.local`.
-3. Kiểm tra status nhiều lần trong 30–60 giây: `RUNNING`, `receivedFrames` và
-   `processedFrames` tăng, `lastFrameAgeMs` thấp; đổi góc camera để checksum thay đổi.
-4. Đồng thời xác nhận hình React vẫn chuyển động, HLS segment mới vẫn xuất hiện.
-5. Chạy stop: frame API phải trả 503, còn HLS vẫn chạy cùng session.
-6. Start lại: nhận session mới, sequence mới và frame thật mới.
-
-Nếu HLS bị ảnh hưởng, **dừng nhánh frame** ngay bằng `npm run ai:frames:stop`.
-Không tăng retry, không tự đổi camera URL hoặc sửa bridge đang ổn. Khi đó cần
-thống nhất một RTSP relay chia một nguồn cho hai consumer; relay không nằm trong
-thay đổi này vì yêu cầu giữ nguyên HLS hiện tại.
-
-## Kiểm thử mã
+## Kiểm tra
 
 ```powershell
 npm run test:ai
@@ -140,11 +92,12 @@ npm run lint
 npm run build
 ```
 
-Unit tests kiểm tra byte framing, queue, credential isolation và vòng đời process.
-Các buffer kiểm thử giao thức không được dùng làm nguồn camera trong runtime.
-Test chạy không tự kết nối RTSP và không dừng HLS. Kiểm thử unit/build thành công
-không thay thế kiểm chứng hai luồng với camera thật theo các bước trên.
+Unit tests không cần Python/camera, kiểm tra framing, queue, lỗi IPC, lifecycle, status và credential isolation. Chạy thêm integration test với Python/FFmpeg thật và model local (nguồn ảnh kiểm thử FFmpeg, không kết nối camera):
 
-Tham khảo: [FFmpeg select](https://ffmpeg.org/ffmpeg-filters.html#select_002c-aselect),
-[rawvideo](https://ffmpeg.org/ffmpeg-formats.html#rawvideo),
-[Node worker threads](https://nodejs.org/api/worker_threads.html).
+```powershell
+$env:AI_TEST_YOLO='1'
+npm run test:ai
+Remove-Item Env:AI_TEST_YOLO
+```
+
+Kiểm tra camera thật: start rồi xem status trong 30–60 giây. Cần `RUNNING`, receivedFrames/processedFrames tăng và inferencePerformed=true. Đồng thời kiểm tra HLS tiếp tục live. Nếu RTSP không reachable, unit/model tests thành công không chứng minh nguồn camera hoạt động.

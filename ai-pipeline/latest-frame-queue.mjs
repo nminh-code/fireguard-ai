@@ -1,6 +1,6 @@
 // A slow consumer gets the newest pending frame, not an ever-growing backlog.
 export class LatestFrameQueue {
-  constructor(processFrame, onResult, onError) {
+  constructor(processFrame, onResult, onError, paused = false) {
     this.processFrame = processFrame;
     this.onResult = onResult;
     this.onError = onError;
@@ -9,13 +9,19 @@ export class LatestFrameQueue {
     this.pending = null;
     this.dropped = 0;
     this.processed = 0;
+    this.paused = paused;
   }
 
   offer(frame) {
     if (this.closed) return;
     if (this.pending) this.dropped++;
     this.pending = frame;
-    if (!this.busy) void this.drain();
+    if (!this.busy && !this.paused) void this.drain();
+  }
+
+  resume() {
+    this.paused = false;
+    if (!this.closed && this.pending && !this.busy) void this.drain();
   }
 
   async drain() {

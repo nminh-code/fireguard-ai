@@ -22,7 +22,7 @@ export function createApp({ settings, pipeline, ffmpegAvailable, getCameraUrl = 
 
   app.get('/health', (_req, res) => res.json({
     ok: true, service: 'ai-frame-pipeline', ffmpeg: ffmpegAvailable,
-    autoStart: false, inferencePerformed: false,
+    autoStart: false, inferencePerformed: pipeline.status().processor.inferencePerformed,
   }));
   app.get('/v1/pipeline/status', (_req, res) => res.json(pipeline.status()));
   app.post('/v1/pipeline/start', (_req, res) => {
