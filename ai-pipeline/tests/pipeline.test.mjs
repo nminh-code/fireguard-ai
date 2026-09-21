@@ -13,7 +13,8 @@ import { YoloProcessor } from '../processors/yolo-fire-smoke.mjs';
 import { AlertStore } from '../alert-store.mjs';
 
 // Protocol-only byte payloads and process doubles; never a runtime camera source.
-const settings = readSettings({ AI_FRAME_WIDTH: '32', AI_FRAME_HEIGHT: '32' });
+const defaultSettings = readSettings({ AI_FRAME_WIDTH: '32', AI_FRAME_HEIGHT: '32' });
+const settings = { ...defaultSettings, alertDelayMs: 0 };
 const byteCount = settings.width * settings.height * 3;
 const payload = () => Buffer.alloc(byteCount, 17);
 const testUrl = 'rtsp://127.0.0.1:554/onvif2';
@@ -25,7 +26,7 @@ const inference = (frame, detections) => ({
 });
 function alertHarness(options = {}) {
   let time = 0;
-  const store = new AlertStore({ cameraId: settings.cameraId, ...options, now: () => time });
+  const store = new AlertStore({ cameraId: settings.cameraId, delayMs: 0, ...options, now: () => time });
   store.beginSession('session-one');
   const frame = sequence => ({
     cameraId: settings.cameraId, sessionId: store.sessionId, sequence,
@@ -37,9 +38,27 @@ function alertHarness(options = {}) {
 
 test('alert config is bounded and does not permit disabling spam protection', () => {
   assert.equal(settings.alertCooldownMs, 30000);
+  assert.equal(defaultSettings.alertDelayMs, 3000);
   assert.equal(settings.alertCapacity, 100);
   for (const value of ['0', '-1', 'NaN', '9999999']) assert.throws(() => readSettings({ AI_ALERT_COOLDOWN_MS: value }));
+  for (const value of ['-1', '1.5', '60001']) assert.throws(() => readSettings({ AI_ALERT_DELAY_MS: value }));
   for (const value of ['0', '1.5', '1001']) assert.throws(() => readSettings({ AI_ALERT_CAPACITY: value }));
+});
+
+test('alerts are not published until the configured 3-second delay has elapsed', () => {
+  let scheduled;
+  const { store, record } = alertHarness({
+    delayMs: 3000,
+    schedule: (callback, delay) => { scheduled = { callback, delay }; },
+  });
+  record(1, [detection()]);
+  assert.equal(store.latest(), null);
+  assert.equal(store.status().totalCreated, 0);
+  assert.equal(store.status().delayMs, 3000);
+  assert.equal(scheduled.delay, 3000);
+  scheduled.callback();
+  assert.equal(store.latest().sequence, 1);
+  assert.equal(store.status().totalCreated, 1);
 });
 
 test('alerts require successful YOLO, valid geometry and confidence >= 0.5', () => {
@@ -65,7 +84,7 @@ test('alerts require successful YOLO, valid geometry and confidence >= 0.5', () 
   });
 });
 
-test('cooldown emits immediately, chooses strongest box, and does not slide on suppressed frames', () => {
+test('cooldown chooses strongest box and does not slide on suppressed frames', () => {
   const { store, record, setTime } = alertHarness();
   const strongest = { ...detection('fire', 0.99), box: [3, 4, 25, 31] };
   record(1, [detection(), strongest]);

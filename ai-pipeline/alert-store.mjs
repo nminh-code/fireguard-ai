@@ -1,13 +1,18 @@
 import { randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 
-// One store per camera pipeline. No timers, frame buffers, I/O or model work.
+// One store per camera pipeline. Alert publication may be delayed, but frame processing is never blocked.
 export class AlertStore {
-  constructor({ cameraId, cooldownMs = 30000, capacity = 100, now = () => performance.now() }) {
+  constructor({
+    cameraId, cooldownMs = 30000, delayMs = 3000, capacity = 100,
+    now = () => performance.now(), schedule = (callback, delay) => setTimeout(callback, delay),
+  }) {
     this.cameraId = cameraId;
     this.cooldownMs = cooldownMs;
+    this.delayMs = delayMs;
     this.capacity = capacity;
     this.now = now;
+    this.schedule = schedule;
     this.events = [];
     this.lastEmitted = new Map(); // At most two entries: fire and smoke.
     this.totalCreated = 0;
@@ -49,11 +54,16 @@ export class AlertStore {
         timestamp: frame.receivedAt, sequence: frame.sequence,
         width: frame.width, height: frame.height,
       });
-      this.events.push(event);
-      if (this.events.length > this.capacity) this.events.shift();
-      this.totalCreated++;
       this.lastEmitted.set(detection.class, now);
+      if (this.delayMs === 0) this.publish(event);
+      else this.schedule(() => this.publish(event), this.delayMs)?.unref?.();
     }
+  }
+
+  publish(event) {
+    this.events.push(event);
+    if (this.events.length > this.capacity) this.events.shift();
+    this.totalCreated++;
   }
 
   latest() { return this.events.at(-1) ?? null; }
@@ -62,7 +72,7 @@ export class AlertStore {
 
   status() {
     return {
-      confidenceThreshold: 0.5, cooldownMs: this.cooldownMs, capacity: this.capacity,
+      confidenceThreshold: 0.5, cooldownMs: this.cooldownMs, delayMs: this.delayMs, capacity: this.capacity,
       retained: this.events.length, totalCreated: this.totalCreated, latestId: this.latest()?.id ?? null,
     };
   }

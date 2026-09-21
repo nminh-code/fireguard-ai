@@ -76,13 +76,14 @@ Ultralytics nhận NumPy theo BGR; adapter chuyển RGB24 → BGR trước khi p
 
 ## Detection → alert event
 
-`FramePipeline` đưa kết quả YOLO đã hoàn tất vào `AlertStore`. Không thêm worker, timer,
-inference, RTSP connection hoặc I/O trên đường xử lý frame. Queue vẫn chỉ có một frame
+`FramePipeline` đưa kết quả YOLO đã hoàn tất vào `AlertStore`. Timer chỉ trì hoãn
+việc phát alert, không chặn inference, RTSP, I/O hay đường xử lý frame. Queue vẫn chỉ có một frame
 đang xử lý và một frame chờ mới nhất. Runtime không có dữ liệu mẫu hay API tạo alert thủ công.
 
 - Chỉ `fire`/`smoke`, confidence **>= 0.5**, bounding box hợp lệ từ inference thành công
   mới sinh event. Giữ `AI_CONFIDENCE=0.5` để YOLO không lọc mất detection ở ngưỡng này.
-- Detection đầu tiên phát event ngay. `AI_ALERT_COOLDOWN_MS=30000` giới hạn mỗi camera/class
+- Detection đầu tiên phát event sau `AI_ALERT_DELAY_MS=3000` (3 giây). Timestamp event vẫn
+  là thời điểm nhận frame. `AI_ALERT_COOLDOWN_MS=30000` giới hạn mỗi camera/class
   tối đa một event mỗi 30 giây. Fire và smoke có cooldown độc lập. Nếu một frame có nhiều
   box cùng class, event lấy box có confidence cao nhất.
 - Frame bị chặn bởi cooldown không kéo dài cooldown. Sau 30 giây, chỉ detection mới đủ
@@ -100,7 +101,7 @@ nguồn của pipeline; timestamp là lúc backend nhận frame, không phải t
 Event là bản ghi bất biến của detection đã phát cảnh báo, chưa có acknowledge/resolve.
 
 Hai endpoint luôn trả 200 khi chưa có event (`alert: null` hoặc `alerts: []`). Metadata gồm:
-`cameraId`, `sessionId` hiện tại, `pipelineState`, `confidenceThreshold`, `cooldownMs`,
+`cameraId`, `sessionId` hiện tại, `pipelineState`, `confidenceThreshold`, `cooldownMs`, `delayMs`,
 `capacity`, `retained`, `totalCreated`, `latestId`. Event cũ có thể thuộc session khác;
 đây là lịch sử cảnh báo, không phải khẳng định hiện tại vẫn còn lửa/khói. Kiểm tra state,
 timestamp và session khi hiển thị. `/v1/pipeline/status` giữ các trường cũ và thêm `alerts`

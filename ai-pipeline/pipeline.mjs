@@ -48,7 +48,8 @@ export class FramePipeline {
     this.processorState = 'IDLE';
     this.closed = Promise.resolve();
     this.alerts = new AlertStore({
-      cameraId: settings.cameraId, cooldownMs: settings.alertCooldownMs, capacity: settings.alertCapacity,
+      cameraId: settings.cameraId, cooldownMs: settings.alertCooldownMs,
+      delayMs: settings.alertDelayMs, capacity: settings.alertCapacity,
     });
   }
 
