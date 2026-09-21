@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { User, UserRole, Notification, DashboardStats } from '../types';
 import { notificationService } from '../services/notificationService';
 import { incidentService } from '../services/incidentService';
@@ -24,6 +24,12 @@ interface TopbarProps {
 
 export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, onRoleChange, onLogout }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isCameraTestOrMonitoring =
+    location.pathname === '/camera-test' ||
+    location.pathname === '/camera-connect' ||
+    location.pathname === '/monitoring';
+
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(2);
@@ -102,14 +108,16 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, on
             <Building2 className="h-5 w-5 text-slate-800" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-sm md:text-base text-slate-900 leading-tight">
-                Nhà máy ABC - Hải Phòng
-              </span>
-              <span className="hidden md:inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
-                KCN Đình Vũ
-              </span>
-            </div>
+            {!isCameraTestOrMonitoring && (
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm md:text-base text-slate-900 leading-tight">
+                  Nhà máy ABC - Hải Phòng
+                </span>
+                <span className="hidden md:inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                  KCN Đình Vũ
+                </span>
+              </div>
+            )}
             <div className="flex items-center gap-1.5 text-xs">
               {hasActiveFire ? (
                 <span className="flex items-center gap-1 font-bold text-red-600 animate-pulse">
@@ -130,31 +138,33 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, on
       {/* Right side: Demo Event Simulation + Bell Notifications + User Profile */}
       <div className="flex items-center gap-3">
         {/* Demo AI Event Simulation Buttons */}
-        <div className="flex items-center gap-1.5 bg-slate-100/90 p-1 rounded-lg border border-slate-200">
-          <button
-            onClick={handleSimulateFire}
-            disabled={isSimulating}
-            className="flex items-center gap-1.5 rounded-md bg-red-600 hover:bg-red-700 active:scale-98 text-white px-2.5 py-1.5 text-xs font-semibold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
-            title="Kích hoạt sự kiện cháy giả lập"
-            id="btn-simulate-fire"
-          >
-            <Zap className="h-3.5 w-3.5 text-yellow-300 fill-yellow-300" />
-            <span className="hidden sm:inline">GIẢ LẬP BÁO CHÁY</span>
-            <span className="sm:hidden">CHÁY</span>
-          </button>
-
-          {hasActiveFire && (
+        {!isCameraTestOrMonitoring && (
+          <div className="flex items-center gap-1.5 bg-slate-100/90 p-1 rounded-lg border border-slate-200">
             <button
-              onClick={handleResolveLatest}
-              className="flex items-center gap-1 rounded-md bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white px-2.5 py-1.5 text-xs font-semibold shadow-xs transition-all cursor-pointer"
-              title="Đánh dấu giải quyết sự cố cháy"
-              id="btn-resolve-fire"
+              onClick={handleSimulateFire}
+              disabled={isSimulating}
+              className="flex items-center gap-1.5 rounded-md bg-red-600 hover:bg-red-700 active:scale-98 text-white px-2.5 py-1.5 text-xs font-semibold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+              title="Kích hoạt sự kiện cháy giả lập"
+              id="btn-simulate-fire"
             >
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">KHẮC PHỤC</span>
+              <Zap className="h-3.5 w-3.5 text-yellow-300 fill-yellow-300" />
+              <span className="hidden sm:inline">GIẢ LẬP BÁO CHÁY</span>
+              <span className="sm:hidden">CHÁY</span>
             </button>
-          )}
-        </div>
+
+            {hasActiveFire && (
+              <button
+                onClick={handleResolveLatest}
+                className="flex items-center gap-1 rounded-md bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white px-2.5 py-1.5 text-xs font-semibold shadow-xs transition-all cursor-pointer"
+                title="Đánh dấu giải quyết sự cố cháy"
+                id="btn-resolve-fire"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">KHẮC PHỤC</span>
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Notifications Dropdown */}
         <div className="relative">
