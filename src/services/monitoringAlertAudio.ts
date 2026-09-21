@@ -1,54 +1,98 @@
+import fireAlarmUrl from '../assets/fire-alarm.mp3';
+
+interface AlertSoundIdentity {
+  id: string;
+  sequence: number;
+  class: 'fire' | 'smoke';
+}
+
+const MAX_HANDLED_ALERTS = 200;
+
 class MonitoringAlertAudio {
-  private context: AudioContext | null = null;
-  private enabled = false;
+  private audio: HTMLAudioElement | null = null;
+  private handledAlertKeys = new Set<string>();
+  private pendingAlertKey: string | null = null;
+  private unlocked = false;
+  private unlocking = false;
 
-  public isEnabled(): boolean {
-    return this.enabled && this.context?.state === 'running';
+  public bindUserInteraction(): () => void {
+    if (typeof window === 'undefined') return () => {};
+    this.getAudio()?.load();
+    const handleInteraction = () => { void this.handleUserInteraction(); };
+    window.addEventListener('pointerdown', handleInteraction, true);
+    window.addEventListener('keydown', handleInteraction, true);
+    window.addEventListener('touchstart', handleInteraction, true);
+    return () => {
+      window.removeEventListener('pointerdown', handleInteraction, true);
+      window.removeEventListener('keydown', handleInteraction, true);
+      window.removeEventListener('touchstart', handleInteraction, true);
+    };
   }
 
-  public async enable(): Promise<boolean> {
+  public handleAlert(alert: AlertSoundIdentity): void {
+    if (alert.class !== 'fire') return;
+    const alertKey = `${alert.id}:${alert.sequence}`;
+    if (this.handledAlertKeys.has(alertKey)) return;
+    this.remember(alertKey);
+    this.pendingAlertKey = alertKey;
+    void this.play(alertKey);
+  }
+
+  private getAudio(): HTMLAudioElement | null {
+    if (typeof Audio === 'undefined') return null;
+    if (!this.audio) {
+      this.audio = new Audio(fireAlarmUrl);
+      this.audio.preload = 'auto';
+      this.audio.loop = false;
+    }
+    return this.audio;
+  }
+
+  private async play(alertKey: string): Promise<void> {
+    const audio = this.getAudio();
+    if (!audio) return;
     try {
-      if (!this.context) {
-        const AudioContextClass = window.AudioContext ||
-          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        if (!AudioContextClass) return false;
-        this.context = new AudioContextClass();
-      }
-      if (this.context.state === 'suspended') await this.context.resume();
-      this.enabled = this.context.state === 'running';
-      if (this.enabled) this.playTone('smoke', true);
-      return this.enabled;
+      audio.muted = false;
+      audio.currentTime = 0;
+      await audio.play();
+      this.unlocked = true;
+      if (this.pendingAlertKey === alertKey) this.pendingAlertKey = null;
     } catch {
-      this.enabled = false;
-      return false;
+      // Keep this fire alert pending; the next user gesture retries playback.
     }
   }
 
-  public playAlert(type: 'fire' | 'smoke'): boolean {
-    if (!this.isEnabled()) return false;
-    this.playTone(type, false);
-    return true;
+  private async handleUserInteraction(): Promise<void> {
+    if (this.unlocking) return;
+    const pendingAlertKey = this.pendingAlertKey;
+    if (pendingAlertKey) {
+      await this.play(pendingAlertKey);
+      return;
+    }
+    if (this.unlocked) return;
+    const audio = this.getAudio();
+    if (!audio) return;
+    this.unlocking = true;
+    try {
+      audio.muted = true;
+      audio.currentTime = 0;
+      await audio.play();
+      audio.pause();
+      audio.currentTime = 0;
+      this.unlocked = true;
+    } catch {
+      // A later user gesture can retry the unlock.
+    } finally {
+      audio.muted = false;
+      this.unlocking = false;
+    }
   }
 
-  private playTone(type: 'fire' | 'smoke', confirmation: boolean): void {
-    const context = this.context;
-    if (!context || context.state !== 'running') return;
-    const start = context.currentTime;
-    const duration = confirmation ? 0.16 : 0.75;
-    const oscillator = context.createOscillator();
-    const gain = context.createGain();
-    oscillator.type = type === 'fire' ? 'sawtooth' : 'sine';
-    oscillator.frequency.setValueAtTime(confirmation ? 660 : type === 'fire' ? 880 : 520, start);
-    if (!confirmation) {
-      oscillator.frequency.linearRampToValueAtTime(type === 'fire' ? 1320 : 760, start + duration / 2);
-      oscillator.frequency.linearRampToValueAtTime(type === 'fire' ? 880 : 520, start + duration);
-    }
-    gain.gain.setValueAtTime(confirmation ? 0.04 : 0.14, start);
-    gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
-    oscillator.connect(gain);
-    gain.connect(context.destination);
-    oscillator.start(start);
-    oscillator.stop(start + duration);
+  private remember(alertKey: string): void {
+    this.handledAlertKeys.add(alertKey);
+    if (this.handledAlertKeys.size <= MAX_HANDLED_ALERTS) return;
+    const oldestKey = this.handledAlertKeys.values().next().value;
+    if (oldestKey) this.handledAlertKeys.delete(oldestKey);
   }
 }
 

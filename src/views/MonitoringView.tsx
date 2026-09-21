@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { AlertTriangle, CheckCircle2, Flame, Radio, RefreshCw, ShieldAlert, Wind } from 'lucide-react';
 import { HlsVideoPlayer } from '../components/HlsVideoPlayer';
 import { cameraSessionStore } from '../services/cameraSessionStore';
+import { monitoringAlertAudio } from '../services/monitoringAlertAudio';
 import {
   AlertHistoryResponse,
   LatestAlertResponse,
@@ -28,13 +29,14 @@ export const MonitoringView: React.FC = () => {
   const [newAlertId, setNewAlertId] = useState<string | null>(null);
   const [connection, setConnection] = useState<'loading' | 'connected' | 'error'>('loading');
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
-  const latestId = useRef<string | null>(null);
+  const latestAlertKey = useRef<string | null>(null);
   const initialized = useRef(false);
 
   useEffect(() => {
     let disposed = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let activeController: AbortController | undefined;
+    const unbindAudioInteraction = monitoringAlertAudio.bindUserInteraction();
 
     const request = async <T,>(operation: (signal: AbortSignal) => Promise<T>): Promise<T> => {
       const controller = new AbortController();
@@ -63,6 +65,7 @@ export const MonitoringView: React.FC = () => {
         const current: LatestAlertResponse = await request(getLatestAlert);
         if (disposed) return;
         const currentId = current.alert?.id ?? null;
+        const currentAlertKey = current.alert ? `${current.alert.id}:${current.alert.sequence}` : null;
         setLatest(current.alert);
         setHistory(previous => previous ? {
           ...previous,
@@ -70,9 +73,12 @@ export const MonitoringView: React.FC = () => {
           sessionId: current.sessionId,
           pipelineState: current.pipelineState,
         } : previous);
-        if (initialized.current && currentId && currentId !== latestId.current) setNewAlertId(currentId);
-        if (!initialized.current || currentId !== latestId.current) await refreshHistory();
-        latestId.current = currentId;
+        if (initialized.current && current.alert && currentAlertKey !== latestAlertKey.current) {
+          setNewAlertId(currentId);
+          monitoringAlertAudio.handleAlert(current.alert);
+        }
+        if (!initialized.current || currentAlertKey !== latestAlertKey.current) await refreshHistory();
+        latestAlertKey.current = currentAlertKey;
         initialized.current = true;
         setConnection('connected');
         setLastUpdated(new Date().toISOString());
@@ -88,6 +94,7 @@ export const MonitoringView: React.FC = () => {
       disposed = true;
       clearTimeout(timer);
       activeController?.abort();
+      unbindAudioInteraction();
     };
   }, []);
 
