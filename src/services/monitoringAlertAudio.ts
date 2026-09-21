@@ -12,8 +12,26 @@ class MonitoringAlertAudio {
   private audio: HTMLAudioElement | null = null;
   private handledAlertKeys = new Set<string>();
   private pendingAlertKey: string | null = null;
+  private enabled = true;
   private unlocked = false;
   private unlocking = false;
+
+  public isEnabled(): boolean {
+    return this.enabled;
+  }
+
+  public setEnabled(enabled: boolean): void {
+    this.enabled = enabled;
+    if (!enabled) {
+      this.pendingAlertKey = null;
+      if (this.audio) {
+        this.audio.pause();
+        this.audio.currentTime = 0;
+      }
+      return;
+    }
+    void this.handleUserInteraction();
+  }
 
   public bindUserInteraction(): () => void {
     if (typeof window === 'undefined') return () => {};
@@ -34,6 +52,7 @@ class MonitoringAlertAudio {
     const alertKey = `${alert.id}:${alert.sequence}`;
     if (this.handledAlertKeys.has(alertKey)) return;
     this.remember(alertKey);
+    if (!this.enabled) return;
     this.pendingAlertKey = alertKey;
     void this.play(alertKey);
   }
@@ -49,6 +68,7 @@ class MonitoringAlertAudio {
   }
 
   private async play(alertKey: string): Promise<void> {
+    if (!this.enabled) return;
     const audio = this.getAudio();
     if (!audio) return;
     try {
@@ -63,7 +83,7 @@ class MonitoringAlertAudio {
   }
 
   private async handleUserInteraction(): Promise<void> {
-    if (this.unlocking) return;
+    if (!this.enabled || this.unlocking) return;
     const pendingAlertKey = this.pendingAlertKey;
     if (pendingAlertKey) {
       await this.play(pendingAlertKey);

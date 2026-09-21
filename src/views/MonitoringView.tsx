@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { AlertTriangle, CheckCircle2, Flame, Radio, RefreshCw, ShieldAlert, Wind } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Flame, Radio, RefreshCw, ShieldAlert, Volume2, VolumeX, Wind } from 'lucide-react';
 import { HlsVideoPlayer } from '../components/HlsVideoPlayer';
 import { cameraSessionStore } from '../services/cameraSessionStore';
 import { monitoringAlertAudio } from '../services/monitoringAlertAudio';
@@ -29,6 +29,7 @@ export const MonitoringView: React.FC = () => {
   const [newAlertId, setNewAlertId] = useState<string | null>(null);
   const [connection, setConnection] = useState<'loading' | 'connected' | 'error'>('loading');
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [audioEnabled, setAudioEnabled] = useState(() => monitoringAlertAudio.isEnabled());
   const latestAlertKey = useRef<string | null>(null);
   const initialized = useRef(false);
 
@@ -165,6 +166,22 @@ export const MonitoringView: React.FC = () => {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-full bg-slate-900 px-2.5 py-1 text-xs font-black tracking-wider text-white">{latest.class.toUpperCase()}</span>
                   {newAlertId === latest.id && <span className="rounded-full bg-red-600 px-2.5 py-1 text-xs font-bold text-white">CẢNH BÁO MỚI</span>}
+                  {latest.class === 'fire' && (
+                    <button
+                      type="button"
+                      aria-pressed={!audioEnabled}
+                      title={audioEnabled ? 'Tắt âm thanh cảnh báo' : 'Bật âm thanh cảnh báo'}
+                      onClick={() => {
+                        const nextEnabled = !audioEnabled;
+                        monitoringAlertAudio.setEnabled(nextEnabled);
+                        setAudioEnabled(nextEnabled);
+                      }}
+                      className="inline-flex items-center gap-1 rounded-full border border-black/10 bg-white/80 px-2 py-1 text-xs font-semibold text-slate-700 transition-colors hover:bg-white"
+                    >
+                      {audioEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+                      {audioEnabled ? 'Tắt âm' : 'Bật âm'}
+                    </button>
+                  )}
                 </div>
                 <p className="mt-3 font-bold text-slate-900">Camera: {latest.cameraId}</p>
                 <p className="mt-1 text-sm text-slate-700">Confidence: <strong>{(latest.confidence * 100).toFixed(1)}%</strong></p>
