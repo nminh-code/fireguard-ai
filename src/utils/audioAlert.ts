@@ -1,13 +1,20 @@
+import fireAlarmUrl from '../assets/fire-alarm.mp3';
+
 /**
- * Web Audio API based emergency siren / beep simulator for Favis AI.
- * Safe for browser sandbox without relying on external mp3 assets.
+ * Sound Manager for Favis AI.
+ * Uses fire-alarm.mp3 for fire alarm sounds with Web Audio API fallback.
  */
 class SoundManager {
   private audioCtx: AudioContext | null = null;
   private enabled: boolean = true;
+  private fireAlarmAudio: HTMLAudioElement | null = null;
 
   public setEnabled(val: boolean) {
     this.enabled = val;
+    if (!val && this.fireAlarmAudio) {
+      this.fireAlarmAudio.pause();
+      this.fireAlarmAudio.currentTime = 0;
+    }
   }
 
   public isEnabled(): boolean {
@@ -28,8 +35,33 @@ class SoundManager {
     return this.audioCtx;
   }
 
+  private getFireAlarmAudio(): HTMLAudioElement | null {
+    if (typeof Audio === 'undefined') return null;
+    if (!this.fireAlarmAudio) {
+      this.fireAlarmAudio = new Audio(fireAlarmUrl);
+      this.fireAlarmAudio.preload = 'auto';
+    }
+    return this.fireAlarmAudio;
+  }
+
   public playFireAlarm(): void {
     if (!this.enabled) return;
+    try {
+      const audio = this.getFireAlarmAudio();
+      if (audio) {
+        audio.currentTime = 0;
+        audio.play().catch(() => {
+          this.playFallbackWebAudio();
+        });
+      } else {
+        this.playFallbackWebAudio();
+      }
+    } catch {
+      this.playFallbackWebAudio();
+    }
+  }
+
+  private playFallbackWebAudio(): void {
     try {
       const ctx = this.getContext();
       if (!ctx) return;

@@ -4,6 +4,7 @@ import { DashboardStats, Camera, Incident } from '../types';
 import { incidentService } from '../services/incidentService';
 import { cameraService } from '../services/cameraService';
 import { realtimeService } from '../services/realtimeService';
+import { soundManager } from '../utils/audioAlert';
 import { CctvPlayer } from '../components/CctvPlayer';
 import {
   Cctv,
@@ -201,7 +202,10 @@ export const DashboardView: React.FC = () => {
           </div>
 
           <button
-            onClick={() => incidentService.simulateFireEvent()}
+            onClick={() => {
+              soundManager.playFireAlarm();
+              incidentService.simulateFireEvent();
+            }}
             className="hidden sm:flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 bg-white border border-emerald-200 px-3 py-1.5 rounded-lg shadow-2xs cursor-pointer font-medium"
           >
             <Zap className="h-3.5 w-3.5 text-amber-500" />
