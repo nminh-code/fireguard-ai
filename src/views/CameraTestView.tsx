@@ -75,7 +75,7 @@ export const CameraTestView: React.FC = () => {
 
     const assignedId =
       formData.id.trim() ||
-      `CAM-${Math.floor(100 + Math.random() * 900)}`;
+      `camera-${crypto.randomUUID()}`;
 
     const configToTest: CameraConnectionConfig = {
       ...formData,
@@ -120,7 +120,7 @@ export const CameraTestView: React.FC = () => {
 
     const assignedId =
       formData.id.trim() ||
-      `CAM-${Math.floor(100 + Math.random() * 900)}`;
+      `camera-${crypto.randomUUID()}`;
 
     const configToSave: CameraConnectionConfig = {
       ...formData,
@@ -136,11 +136,12 @@ export const CameraTestView: React.FC = () => {
   };
 
   const handleLoadCamera = (camera: CameraConnectionConfig) => {
-    const { model: _model, apiUrl: _apiUrl, ...visibleCameraConfig } = camera;
+    if (isTesting) return;
     const nextFormData: CameraConnectionConfig = {
-      ...visibleCameraConfig,
+      ...camera,
       password: '', // Keep password blank when loading for security
     };
+    setShowPassword(false);
     setFormData(nextFormData);
     setConnectionStatus('NOT_CONNECTED');
     setConnectionResult(null);
@@ -211,6 +212,7 @@ export const CameraTestView: React.FC = () => {
               <button
                 type="button"
                 onClick={handleResetForm}
+                disabled={isTesting}
                 className="text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1 transition-colors cursor-pointer"
                 title="Đặt lại các trường về mặc định"
               >
@@ -220,6 +222,7 @@ export const CameraTestView: React.FC = () => {
             </div>
 
             <form onSubmit={handleTestConnection} className="p-5 space-y-4">
+              <div className="text-xs text-slate-600">Camera ID: <span className="font-mono">{formData.id || 'Tự tạo khi lưu hoặc kiểm tra'}</span></div>
               {/* Camera Name */}
               <div>
                 <div>
@@ -377,9 +380,10 @@ export const CameraTestView: React.FC = () => {
                     name="streamUrl"
                     value={formData.streamUrl || ''}
                     onChange={handleInputChange}
-                    placeholder="rtsp://user:pass@192.168.1.120:554/Streaming/Channels/101"
+                    placeholder="rtsp://192.168.1.11:554/ch1/main"
                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs sm:text-sm text-slate-900 font-mono focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-hidden"
                   />
+                  <p className="mt-1 text-xs text-slate-500">Nhập URL không chứa mật khẩu; dùng trường Username và Password ở trên. Mật khẩu không được lưu vào cấu hình.</p>
                 </div>
 
               </div>
@@ -405,6 +409,7 @@ export const CameraTestView: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleSaveCamera}
+                  disabled={isTesting}
                   id="btn-save-camera"
                   className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 active:scale-98 text-slate-700 px-4 py-2.5 text-sm font-semibold shadow-2xs transition-all cursor-pointer"
                 >
@@ -458,7 +463,7 @@ export const CameraTestView: React.FC = () => {
                           </span>
                         </div>
                         <div className="text-xs text-slate-500 font-medium line-clamp-1">
-                          {cam.protocol} stream
+                          {cam.id} · {cam.protocol}
                         </div>
                       </div>
 

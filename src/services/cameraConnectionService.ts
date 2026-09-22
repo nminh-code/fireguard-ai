@@ -28,6 +28,13 @@ export const CAMERA_API_ENDPOINTS = {
 };
 
 const STORAGE_KEY = 'favis_saved_camera_configs';
+const EZVIZ_MIGRATION_KEY = 'favis_camera02_ezviz_added';
+
+const CAMERA_02: CameraConnectionConfig = {
+  id: 'camera-02-ezviz', name: 'Camera 02 EZVIZ', brand: 'Ezviz',
+  model: 'CS-C6N', ip: '192.168.1.11', port: 554, protocol: 'RTSP',
+  username: 'admin', password: '', streamUrl: 'rtsp://192.168.1.11:554/ch1/main',
+};
 
 const INITIAL_SAVED_CONFIGS: CameraConnectionConfig[] = [];
 
@@ -47,6 +54,15 @@ class CameraConnectionService {
       } else {
         this.savedCameras = [...INITIAL_SAVED_CONFIGS];
         this.persistToStorage();
+      }
+      // Add once to existing installations without replacing Camera 01 or user edits.
+      // The marker also allows an explicitly deleted Camera 02 to stay deleted.
+      if (!localStorage.getItem(EZVIZ_MIGRATION_KEY)) {
+        const existing = this.savedCameras.some(camera => camera.id === CAMERA_02.id ||
+          (camera.ip === CAMERA_02.ip && camera.brand === 'Ezviz'));
+        if (!existing) this.savedCameras.push({ ...CAMERA_02 });
+        this.persistToStorage();
+        localStorage.setItem(EZVIZ_MIGRATION_KEY, '1');
       }
     } catch {
       this.savedCameras = [...INITIAL_SAVED_CONFIGS];
