@@ -15,7 +15,7 @@ import { FramePipeline, extractionArgs, ffmpegDiagnostic } from '../pipeline.mjs
 import { createApp } from '../server.mjs';
 import { YoloProcessor } from '../processors/yolo-fire-smoke.mjs';
 import { AlertStore } from '../alert-store.mjs';
-import { EvidenceStore } from '../evidence-store.mjs';
+import { encodeRgbPng, EvidenceStore } from '../evidence-store.mjs';
 
 // Protocol-only byte payloads and process doubles; never a runtime camera source.
 const testEvidenceDirectory = mkdtempSync(path.join(tmpdir(), 'ai-evidence-test-'));
@@ -139,6 +139,30 @@ test('evidence uses the original inference frame across alert delay and follows 
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
+});
+
+test('evidence renderer draws FIRE and SMOKE boxes without mutating the inference frame', () => {
+  const frame = { width: 64, height: 64, data: Buffer.alloc(64 * 64 * 3, 17) };
+  const png = encodeRgbPng(frame, [
+    { class: 'fire', confidence: 0.842, box: [10, 20, 30, 40] },
+    { class: 'smoke', confidence: 0.765, box: [35, 20, 55, 40] },
+  ]);
+  const compressed = [];
+  for (let offset = 8; offset < png.length;) {
+    const length = png.readUInt32BE(offset);
+    const type = png.toString('ascii', offset + 4, offset + 8);
+    if (type === 'IDAT') compressed.push(png.subarray(offset + 8, offset + 8 + length));
+    offset += length + 12;
+  }
+  const scanlines = inflateSync(Buffer.concat(compressed));
+  const pixel = (x, y) => {
+    const offset = y * (64 * 3 + 1) + 1 + x * 3;
+    return [...scanlines.subarray(offset, offset + 3)];
+  };
+  assert.deepEqual(pixel(10, 20), [255, 64, 32]);
+  assert.deepEqual(pixel(35, 20), [0, 128, 255]);
+  assert.ok(scanlines.includes(Buffer.from([255, 255, 255]))); // Confidence-label glyphs.
+  assert.ok(frame.data.every(value => value === 17));
 });
 
 test('cooldown chooses strongest box and does not slide on suppressed frames', () => {

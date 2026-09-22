@@ -196,7 +196,6 @@ export const MonitoringView: React.FC = () => {
             </div>
             <div className="rounded-lg border border-black/10 bg-white/70 p-3 text-xs text-slate-600">
               <div>Sequence: {latest.sequence}</div>
-              <div className="mt-1">Bounding box (xyxy): [{latest.box.map(value => value.toFixed(1)).join(', ')}]</div>
               <div className="mt-1">Frame: {latest.width} × {latest.height}</div>
             </div>
           </div>
@@ -227,7 +226,7 @@ export const MonitoringView: React.FC = () => {
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
-                <tr><th className="px-3 py-2">Loại</th><th className="px-3 py-2">Camera</th><th className="px-3 py-2">Confidence</th><th className="px-3 py-2">Thời gian</th><th className="px-3 py-2">Sequence</th><th className="px-3 py-2">Bounding box</th><th className="px-3 py-2">Bằng chứng</th></tr>
+                <tr><th className="px-3 py-2">Loại</th><th className="px-3 py-2">Camera</th><th className="px-3 py-2">Confidence</th><th className="px-3 py-2">Thời gian</th><th className="px-3 py-2">Sequence</th><th className="px-3 py-2">Bằng chứng</th></tr>
               </thead>
               <tbody>
                 {alerts.map(alert => (
@@ -237,7 +236,6 @@ export const MonitoringView: React.FC = () => {
                     <td className="px-3 py-3 tabular-nums">{(alert.confidence * 100).toFixed(1)}%</td>
                     <td className="px-3 py-3 whitespace-nowrap"><time dateTime={alert.timestamp}>{formatMonitoringTime(alert.timestamp)}</time></td>
                     <td className="px-3 py-3 tabular-nums">{alert.sequence}</td>
-                    <td className="px-3 py-3 font-mono text-xs">[{alert.box.map(value => value.toFixed(1)).join(', ')}]</td>
                     <td className="px-3 py-3">
                       {alert.evidenceUrl ? (
                         <a href={evidenceHref(alert.evidenceUrl)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 whitespace-nowrap font-bold text-blue-700 hover:underline">

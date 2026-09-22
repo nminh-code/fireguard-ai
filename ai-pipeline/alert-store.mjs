@@ -34,12 +34,14 @@ export class AlertStore {
         result.sequence !== frame.sequence || !Array.isArray(result.detections)) return;
     this.lastSequence = frame.sequence;
     const strongest = new Map();
+    const validDetections = [];
     for (const detection of result.detections) {
       if (!detection || !['fire', 'smoke'].includes(detection.class) ||
           !Number.isFinite(detection.confidence) || detection.confidence < 0.5 || detection.confidence > 1 ||
           !Array.isArray(detection.box) || detection.box.length !== 4 || !detection.box.every(Number.isFinite)) continue;
       const [x1, y1, x2, y2] = detection.box;
       if (x1 < 0 || y1 < 0 || x2 <= x1 || y2 <= y1 || x2 > frame.width || y2 > frame.height) continue;
+      validDetections.push(detection);
       if (!strongest.has(detection.class) || detection.confidence > strongest.get(detection.class).confidence) {
         strongest.set(detection.class, detection);
       }
@@ -52,7 +54,7 @@ export class AlertStore {
       let evidenceUrl = null;
       let preparedEvidence = null;
       try {
-        preparedEvidence = this.evidenceStore?.prepare(id, frame) ?? null;
+        preparedEvidence = this.evidenceStore?.prepare(id, frame, validDetections) ?? null;
         evidenceUrl = preparedEvidence?.url ?? null;
       } catch { /* Keep alerting if evidence encoding fails. */ }
       const event = Object.freeze({
