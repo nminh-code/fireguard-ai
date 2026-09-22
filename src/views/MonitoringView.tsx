@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { AlertTriangle, CheckCircle2, Flame, Radio, RefreshCw, ShieldAlert, Volume2, VolumeX, Wind } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ExternalLink, Flame, Radio, RefreshCw, ShieldAlert, Volume2, VolumeX, Wind } from 'lucide-react';
 import { HlsVideoPlayer } from '../components/HlsVideoPlayer';
 import { cameraSessionStore } from '../services/cameraSessionStore';
 import { monitoringAlertAudio } from '../services/monitoringAlertAudio';
@@ -7,6 +7,7 @@ import {
   AlertHistoryResponse,
   LatestAlertResponse,
   MonitoringAlert,
+  evidenceHref,
   formatMonitoringTime,
   getAlertHistory,
   getLatestAlert,
@@ -186,6 +187,11 @@ export const MonitoringView: React.FC = () => {
                 <p className="mt-3 font-bold text-slate-900">Camera: {latest.cameraId}</p>
                 <p className="mt-1 text-sm text-slate-700">Confidence: <strong>{(latest.confidence * 100).toFixed(1)}%</strong></p>
                 <time className="mt-1 block text-sm text-slate-600" dateTime={latest.timestamp}>{formatMonitoringTime(latest.timestamp)}</time>
+                {latest.evidenceUrl && (
+                  <a href={evidenceHref(latest.evidenceUrl)} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2 text-sm font-bold text-white hover:bg-slate-700">
+                    <ExternalLink className="h-4 w-4" /> Xem ảnh bằng chứng
+                  </a>
+                )}
               </div>
             </div>
             <div className="rounded-lg border border-black/10 bg-white/70 p-3 text-xs text-slate-600">
@@ -221,7 +227,7 @@ export const MonitoringView: React.FC = () => {
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
-                <tr><th className="px-3 py-2">Loại</th><th className="px-3 py-2">Camera</th><th className="px-3 py-2">Confidence</th><th className="px-3 py-2">Thời gian</th><th className="px-3 py-2">Sequence</th><th className="px-3 py-2">Bounding box</th></tr>
+                <tr><th className="px-3 py-2">Loại</th><th className="px-3 py-2">Camera</th><th className="px-3 py-2">Confidence</th><th className="px-3 py-2">Thời gian</th><th className="px-3 py-2">Sequence</th><th className="px-3 py-2">Bounding box</th><th className="px-3 py-2">Bằng chứng</th></tr>
               </thead>
               <tbody>
                 {alerts.map(alert => (
@@ -232,6 +238,13 @@ export const MonitoringView: React.FC = () => {
                     <td className="px-3 py-3 whitespace-nowrap"><time dateTime={alert.timestamp}>{formatMonitoringTime(alert.timestamp)}</time></td>
                     <td className="px-3 py-3 tabular-nums">{alert.sequence}</td>
                     <td className="px-3 py-3 font-mono text-xs">[{alert.box.map(value => value.toFixed(1)).join(', ')}]</td>
+                    <td className="px-3 py-3">
+                      {alert.evidenceUrl ? (
+                        <a href={evidenceHref(alert.evidenceUrl)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 whitespace-nowrap font-bold text-blue-700 hover:underline">
+                          <ExternalLink className="h-3.5 w-3.5" /> Xem ảnh
+                        </a>
+                      ) : <span className="text-slate-400">Không có</span>}
+                    </td>
                   </tr>
                 ))}
               </tbody>

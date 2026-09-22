@@ -5,6 +5,7 @@ import { RawFrameDecoder } from './raw-frame-decoder.mjs';
 import { LatestFrameQueue } from './latest-frame-queue.mjs';
 import { ProcessorClient } from './processor-client.mjs';
 import { AlertStore } from './alert-store.mjs';
+import { EvidenceStore } from './evidence-store.mjs';
 
 export function extractionArgs(settings, rtspUrl) {
   const { width, height, fps, transport } = settings;
@@ -34,7 +35,11 @@ export function ffmpegDiagnostic(text) {
 }
 
 export class FramePipeline {
-  constructor(settings, { spawnProcess = spawn, processorFactory = timeout => new ProcessorClient(timeout, { settings }) } = {}) {
+  constructor(settings, {
+    spawnProcess = spawn,
+    processorFactory = timeout => new ProcessorClient(timeout, { settings }),
+    evidenceStore = new EvidenceStore(settings.evidenceDirectory, Math.min(settings.alertCapacity, 100)),
+  } = {}) {
     this.settings = settings;
     this.spawnProcess = spawnProcess;
     this.processorFactory = processorFactory;
@@ -49,7 +54,7 @@ export class FramePipeline {
     this.closed = Promise.resolve();
     this.alerts = new AlertStore({
       cameraId: settings.cameraId, cooldownMs: settings.alertCooldownMs,
-      delayMs: settings.alertDelayMs, capacity: settings.alertCapacity,
+      delayMs: settings.alertDelayMs, capacity: settings.alertCapacity, evidenceStore,
     });
   }
 

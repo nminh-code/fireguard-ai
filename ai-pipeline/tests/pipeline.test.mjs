@@ -1,8 +1,12 @@
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import { once, EventEmitter } from 'node:events';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { PassThrough } from 'node:stream';
 import { setImmediate as nextTurn } from 'node:timers/promises';
+import { inflateSync } from 'node:zlib';
 import { readSettings, cameraUrl } from '../config.mjs';
 import { RawFrameDecoder } from '../raw-frame-decoder.mjs';
 import { LatestFrameQueue } from '../latest-frame-queue.mjs';
@@ -11,9 +15,12 @@ import { FramePipeline, extractionArgs, ffmpegDiagnostic } from '../pipeline.mjs
 import { createApp } from '../server.mjs';
 import { YoloProcessor } from '../processors/yolo-fire-smoke.mjs';
 import { AlertStore } from '../alert-store.mjs';
+import { EvidenceStore } from '../evidence-store.mjs';
 
 // Protocol-only byte payloads and process doubles; never a runtime camera source.
-const defaultSettings = readSettings({ AI_FRAME_WIDTH: '32', AI_FRAME_HEIGHT: '32' });
+const testEvidenceDirectory = mkdtempSync(path.join(tmpdir(), 'ai-evidence-test-'));
+after(() => rmSync(testEvidenceDirectory, { recursive: true, force: true }));
+const defaultSettings = { ...readSettings({ AI_FRAME_WIDTH: '32', AI_FRAME_HEIGHT: '32' }), evidenceDirectory: testEvidenceDirectory };
 const settings = { ...defaultSettings, alertDelayMs: 0 };
 const byteCount = settings.width * settings.height * 3;
 const payload = () => Buffer.alloc(byteCount, 17);
@@ -80,8 +87,58 @@ test('alerts require successful YOLO, valid geometry and confidence >= 0.5', () 
   assert.deepEqual({ ...event, id: undefined }, {
     id: undefined, cameraId: settings.cameraId, sessionId: 'session-one',
     class: 'fire', confidence: 0.5, box: [1, 2, 20, 30], boxFormat: 'xyxy',
-    timestamp: f.receivedAt, sequence: 2, width: 32, height: 32,
+    timestamp: f.receivedAt, sequence: 2, width: 32, height: 32, evidenceUrl: null,
   });
+});
+
+test('evidence uses the original inference frame across alert delay and follows capacity', () => {
+  const directory = mkdtempSync(path.join(tmpdir(), 'ai-evidence-frame-'));
+  try {
+    let time = 0;
+    const scheduled = [];
+    const evidenceStore = new EvidenceStore(directory, 1);
+    const store = new AlertStore({
+      cameraId: settings.cameraId, delayMs: 3000, cooldownMs: 30000, capacity: 1,
+      evidenceStore, now: () => time,
+      schedule: (callback, delay) => { scheduled.push({ callback, delay }); },
+    });
+    store.beginSession('evidence-session');
+    const makeFrame = (sequence, value) => ({
+      cameraId: settings.cameraId, sessionId: store.sessionId, sequence,
+      receivedAt: `2026-09-20T00:00:${String(sequence).padStart(2, '0')}.000Z`,
+      width: 32, height: 32, data: Buffer.alloc(32 * 32 * 3, value),
+    });
+    const firstFrame = makeFrame(1, 17);
+    store.record(inference(firstFrame, [detection()]), firstFrame);
+    firstFrame.data.fill(99);
+    assert.equal(store.latest(), null);
+    assert.equal(readdirSync(directory).length, 0);
+    assert.equal(scheduled[0].delay, 3000);
+    scheduled[0].callback();
+    const first = store.latest();
+    assert.equal(first.sequence, 1);
+    assert.match(first.evidenceUrl, new RegExp(`^/v1/evidence/${first.id}\\.png$`));
+    const png = readFileSync(evidenceStore.pathFor(first.id));
+    assert.deepEqual([...png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+    const compressed = [];
+    for (let offset = 8; offset < png.length;) {
+      const length = png.readUInt32BE(offset);
+      const type = png.toString('ascii', offset + 4, offset + 8);
+      if (type === 'IDAT') compressed.push(png.subarray(offset + 8, offset + 8 + length));
+      offset += length + 12;
+    }
+    assert.deepEqual([...inflateSync(Buffer.concat(compressed)).subarray(1, 4)], [17, 17, 17]);
+
+    time = 30000;
+    const secondFrame = makeFrame(2, 33);
+    store.record(inference(secondFrame, [detection()]), secondFrame);
+    scheduled[1].callback();
+    assert.equal(store.latest().sequence, 2);
+    assert.equal(readdirSync(directory).length, 1);
+    assert.equal(existsSync(evidenceStore.pathFor(first.id)), false);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test('cooldown chooses strongest box and does not slide on suppressed frames', () => {
@@ -356,6 +413,13 @@ test('alert HTTP API handles empty/history/latest/limits, polling CORS and prese
   assert.equal(first.alerts[0].cameraId, settings.cameraId);
   assert.equal(first.alerts[0].sequence, 1);
   assert.equal(first.alerts[0].timestamp, pipeline.latestFrame().receivedAt);
+  assert.match(first.alerts[0].evidenceUrl, new RegExp(`^/v1/evidence/${first.alerts[0].id}\\.png$`));
+  assert.ok(first.alerts.every(alert => typeof alert.evidenceUrl === 'string'));
+  const evidence = await get(first.alerts[0].evidenceUrl);
+  assert.equal(evidence.status, 200);
+  assert.equal(evidence.headers.get('content-type'), 'image/png');
+  assert.deepEqual([...new Uint8Array((await evidence.arrayBuffer()).slice(0, 8))], [137, 80, 78, 71, 13, 10, 26, 10]);
+  assert.equal((await get('/v1/evidence/not-an-alert.png')).status, 404);
   const latest = await (await get('/v1/alerts/latest')).json();
   assert.deepEqual(latest.alert, first.alerts[0]);
   assert.equal(latest.latestId, latest.alert.id);
@@ -636,7 +700,9 @@ test('real FFmpeg RGB -> queue -> YOLO best.pt -> HTTP status, then reap owned p
   const { setTimeout: delay } = await import('node:timers/promises');
   const { loadEnvironment } = await import('../config.mjs');
   loadEnvironment();
-  const actualSettings = readSettings();
+  const integrationEvidenceDirectory = mkdtempSync(path.join(tmpdir(), 'ai-evidence-integration-'));
+  t.after(() => rmSync(integrationEvidenceDirectory, { recursive: true, force: true }));
+  const actualSettings = { ...readSettings(), evidenceDirectory: integrationEvidenceDirectory };
   let spawns = 0;
   const pipeline = new FramePipeline({ ...actualSettings, connectTimeoutMs: 60000 }, {
     spawnProcess: (executable, _cameraArgs, options) => {

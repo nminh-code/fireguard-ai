@@ -45,6 +45,16 @@ export function createApp({ settings, pipeline, ffmpegAvailable, getCameraUrl = 
     }
     res.json({ ...alertContext(), alerts: pipeline.alerts.list(limit) });
   });
+  app.get('/v1/evidence/:file', (req, res) => {
+    const match = /^([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.png$/i.exec(req.params.file);
+    if (!match) return res.status(404).json({ error: 'EVIDENCE_NOT_FOUND' });
+    const alert = pipeline.alerts.list().find(item => item.id === match[1] && item.evidenceUrl);
+    const file = alert && pipeline.alerts.evidenceStore?.pathFor(alert.id);
+    if (!file) return res.status(404).json({ error: 'EVIDENCE_NOT_FOUND' });
+    res.type('png').sendFile(file, error => {
+      if (error && !res.headersSent) res.status(404).json({ error: 'EVIDENCE_NOT_FOUND' });
+    });
+  });
   app.post('/v1/pipeline/start', (_req, res) => {
     if (!ffmpegAvailable) return res.status(503).json({ error: 'FFMPEG_UNAVAILABLE', message: 'Set AI_FFMPEG_PATH and restart this service.' });
     if (['CONNECTING', 'RUNNING'].includes(pipeline.state)) return res.json(pipeline.status());

@@ -5,7 +5,7 @@ import { performance } from 'node:perf_hooks';
 export class AlertStore {
   constructor({
     cameraId, cooldownMs = 30000, delayMs = 3000, capacity = 100,
-    now = () => performance.now(), schedule = (callback, delay) => setTimeout(callback, delay),
+    now = () => performance.now(), schedule = (callback, delay) => setTimeout(callback, delay), evidenceStore = null,
   }) {
     this.cameraId = cameraId;
     this.cooldownMs = cooldownMs;
@@ -13,6 +13,7 @@ export class AlertStore {
     this.capacity = capacity;
     this.now = now;
     this.schedule = schedule;
+    this.evidenceStore = evidenceStore;
     this.events = [];
     this.lastEmitted = new Map(); // At most two entries: fire and smoke.
     this.totalCreated = 0;
@@ -47,22 +48,35 @@ export class AlertStore {
     for (const detection of strongest.values()) {
       const previous = this.lastEmitted.get(detection.class);
       if (previous !== undefined && now - previous < this.cooldownMs) continue;
+      const id = randomUUID();
+      let evidenceUrl = null;
+      let preparedEvidence = null;
+      try {
+        preparedEvidence = this.evidenceStore?.prepare(id, frame) ?? null;
+        evidenceUrl = preparedEvidence?.url ?? null;
+      } catch { /* Keep alerting if evidence encoding fails. */ }
       const event = Object.freeze({
-        id: randomUUID(), cameraId: frame.cameraId, sessionId: frame.sessionId,
+        id, cameraId: frame.cameraId, sessionId: frame.sessionId,
         class: detection.class, confidence: detection.confidence,
         box: Object.freeze([...detection.box]), boxFormat: 'xyxy',
         timestamp: frame.receivedAt, sequence: frame.sequence,
-        width: frame.width, height: frame.height,
+        width: frame.width, height: frame.height, evidenceUrl,
       });
       this.lastEmitted.set(detection.class, now);
-      if (this.delayMs === 0) this.publish(event);
-      else this.schedule(() => this.publish(event), this.delayMs)?.unref?.();
+      if (this.delayMs === 0) this.publish(event, preparedEvidence);
+      else this.schedule(() => this.publish(event, preparedEvidence), this.delayMs)?.unref?.();
     }
   }
 
-  publish(event) {
-    this.events.push(event);
-    if (this.events.length > this.capacity) this.events.shift();
+  publish(event, preparedEvidence = null) {
+    let publishedEvent = event;
+    try { preparedEvidence?.commit(); }
+    catch { publishedEvent = Object.freeze({ ...event, evidenceUrl: null }); }
+    this.events.push(publishedEvent);
+    if (this.events.length > this.capacity) {
+      const removed = this.events.shift();
+      try { this.evidenceStore?.delete(removed.id); } catch { /* Retention cleanup is best effort. */ }
+    }
     this.totalCreated++;
   }
 

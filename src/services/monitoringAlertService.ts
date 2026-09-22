@@ -10,6 +10,7 @@ export interface MonitoringAlert {
   sequence: number;
   width: number;
   height: number;
+  evidenceUrl: string | null;
 }
 
 export type PipelineState = 'IDLE' | 'CONNECTING' | 'RUNNING' | 'STOPPING' | 'STOPPED' | 'FAILED';
@@ -46,10 +47,16 @@ function parseAlert(value: unknown): MonitoringAlert {
       !Array.isArray(value.box) || value.box.length !== 4 || !value.box.every(Number.isFinite) ||
       typeof value.timestamp !== 'string' || !Number.isFinite(Date.parse(value.timestamp)) ||
       !Number.isSafeInteger(value.sequence) || !Number.isSafeInteger(value.width) ||
-      !Number.isSafeInteger(value.height)) {
+      !Number.isSafeInteger(value.height) ||
+      !(value.evidenceUrl === null || (typeof value.evidenceUrl === 'string' &&
+        /^\/v1\/evidence\/[0-9a-f-]{36}\.png$/i.test(value.evidenceUrl)))) {
     throw new Error('INVALID_ALERT_RESPONSE');
   }
   return value as unknown as MonitoringAlert;
+}
+
+export function evidenceHref(evidenceUrl: string): string {
+  return new URL(evidenceUrl, API_BASE).toString();
 }
 
 function parseContext(value: unknown) {
