@@ -62,6 +62,8 @@ export function readSettings(env = process.env) {
     alertCooldownMs: numberSetting(env, 'AI_ALERT_COOLDOWN_MS', 30000, 1000, 3600000),
     alertDelayMs: numberSetting(env, 'AI_ALERT_DELAY_MS', 3000, 0, 60000),
     alertCapacity: numberSetting(env, 'AI_ALERT_CAPACITY', 100, 1, 1000),
+    alertWindowSize: numberSetting(env, 'AI_ALERT_WINDOW_SIZE', 1, 1, 100),
+    alertRequiredHits: numberSetting(env, 'AI_ALERT_REQUIRED_HITS', 1, 1, 100),
     evidenceDirectory: path.join(root, 'ai-pipeline', 'evidence'),
   });
 }

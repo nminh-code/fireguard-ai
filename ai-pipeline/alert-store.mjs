@@ -1,10 +1,36 @@
 import { randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 
+export class TemporalAlertFilter {
+  constructor(windowSize = 15, requiredHits = 10) {
+    this.windowSize = windowSize;
+    this.requiredHits = requiredHits;
+    this.history = new Map();
+  }
+
+  pushAndCheck(classType, isHit) {
+    if (!this.history.has(classType)) {
+      this.history.set(classType, []);
+    }
+    const queue = this.history.get(classType);
+    queue.push(isHit ? 1 : 0);
+    if (queue.length > this.windowSize) {
+      queue.shift();
+    }
+    const currentHits = queue.reduce((sum, val) => sum + val, 0);
+    return currentHits >= this.requiredHits;
+  }
+
+  reset() {
+    this.history.clear();
+  }
+}
+
 // One store per camera pipeline. Alert publication may be delayed, but frame processing is never blocked.
 export class AlertStore {
   constructor({
     cameraId, cooldownMs = 30000, delayMs = 3000, capacity = 100,
+    windowSize = 15, requiredHits = 10,
     now = () => performance.now(), schedule = (callback, delay) => setTimeout(callback, delay), evidenceStore = null,
   }) {
     this.cameraId = cameraId;
@@ -17,12 +43,14 @@ export class AlertStore {
     this.events = [];
     this.lastEmitted = new Map(); // At most two entries: fire and smoke.
     this.totalCreated = 0;
+    this.temporalFilter = new TemporalAlertFilter(windowSize, requiredHits);
     this.beginSession(null);
   }
 
   beginSession(sessionId) {
     this.sessionId = sessionId;
     this.lastSequence = 0;
+    this.temporalFilter?.reset();
     // Retain history and cooldown across stop/start to avoid reconnect spam.
   }
 
@@ -47,26 +75,32 @@ export class AlertStore {
       }
     }
     const now = this.now(); // Monotonic time; camera/wall-clock changes do not bypass cooldown.
-    for (const detection of strongest.values()) {
-      const previous = this.lastEmitted.get(detection.class);
-      if (previous !== undefined && now - previous < this.cooldownMs) continue;
-      const id = randomUUID();
-      let evidenceUrl = null;
-      let preparedEvidence = null;
-      try {
-        preparedEvidence = this.evidenceStore?.prepare(id, frame, validDetections) ?? null;
-        evidenceUrl = preparedEvidence?.url ?? null;
-      } catch { /* Keep alerting if evidence encoding fails. */ }
-      const event = Object.freeze({
-        id, cameraId: frame.cameraId, sessionId: frame.sessionId,
-        class: detection.class, confidence: detection.confidence,
-        box: Object.freeze([...detection.box]), boxFormat: 'xyxy',
-        timestamp: frame.receivedAt, sequence: frame.sequence,
-        width: frame.width, height: frame.height, evidenceUrl,
-      });
-      this.lastEmitted.set(detection.class, now);
-      if (this.delayMs === 0) this.publish(event, preparedEvidence);
-      else this.schedule(() => this.publish(event, preparedEvidence), this.delayMs)?.unref?.();
+    for (const classType of ['fire', 'smoke']) {
+      const detection = strongest.get(classType);
+      const isHit = Boolean(detection);
+      const passedFilter = this.temporalFilter.pushAndCheck(classType, isHit);
+
+      if (detection && passedFilter) {
+        const previous = this.lastEmitted.get(detection.class);
+        if (previous !== undefined && now - previous < this.cooldownMs) continue;
+        const id = randomUUID();
+        let evidenceUrl = null;
+        let preparedEvidence = null;
+        try {
+          preparedEvidence = this.evidenceStore?.prepare(id, frame, validDetections) ?? null;
+          evidenceUrl = preparedEvidence?.url ?? null;
+        } catch { /* Keep alerting if evidence encoding fails. */ }
+        const event = Object.freeze({
+          id, cameraId: frame.cameraId, sessionId: frame.sessionId,
+          class: detection.class, confidence: detection.confidence,
+          box: Object.freeze([...detection.box]), boxFormat: 'xyxy',
+          timestamp: frame.receivedAt, sequence: frame.sequence,
+          width: frame.width, height: frame.height, evidenceUrl,
+        });
+        this.lastEmitted.set(detection.class, now);
+        if (this.delayMs === 0) this.publish(event, preparedEvidence);
+        else this.schedule(() => this.publish(event, preparedEvidence), this.delayMs)?.unref?.();
+      }
     }
   }
 
@@ -89,6 +123,7 @@ export class AlertStore {
   status() {
     return {
       confidenceThreshold: 0.5, cooldownMs: this.cooldownMs, delayMs: this.delayMs, capacity: this.capacity,
+      windowSize: this.temporalFilter.windowSize, requiredHits: this.temporalFilter.requiredHits,
       retained: this.events.length, totalCreated: this.totalCreated, latestId: this.latest()?.id ?? null,
     };
   }

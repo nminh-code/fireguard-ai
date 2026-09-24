@@ -33,7 +33,7 @@ const inference = (frame, detections) => ({
 });
 function alertHarness(options = {}) {
   let time = 0;
-  const store = new AlertStore({ cameraId: settings.cameraId, delayMs: 0, ...options, now: () => time });
+  const store = new AlertStore({ cameraId: settings.cameraId, delayMs: 0, windowSize: 1, requiredHits: 1, ...options, now: () => time });
   store.beginSession('session-one');
   const frame = sequence => ({
     cameraId: settings.cameraId, sessionId: store.sessionId, sequence,
@@ -99,6 +99,7 @@ test('evidence uses the original inference frame across alert delay and follows 
     const evidenceStore = new EvidenceStore(directory, 1);
     const store = new AlertStore({
       cameraId: settings.cameraId, delayMs: 3000, cooldownMs: 30000, capacity: 1,
+      windowSize: 1, requiredHits: 1,
       evidenceStore, now: () => time,
       schedule: (callback, delay) => { scheduled.push({ callback, delay }); },
     });
@@ -139,6 +140,30 @@ test('evidence uses the original inference frame across alert delay and follows 
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
+});
+
+test('temporal persistence filter requires minimum hits before emitting alerts', () => {
+  const store = new AlertStore({ cameraId: settings.cameraId, delayMs: 0, windowSize: 15, requiredHits: 10 });
+  store.beginSession('session-temporal');
+  const makeFrame = seq => ({
+    cameraId: settings.cameraId, sessionId: store.sessionId, sequence: seq,
+    receivedAt: '2026-09-20T00:00:00.000Z', width: 32, height: 32,
+  });
+
+  // 1 to 5 frames with fire (5 hits < 10 required) -> Should NOT emit alert
+  for (let i = 1; i <= 5; i++) {
+    const f = makeFrame(i);
+    store.record(inference(f, [detection('fire')]), f);
+  }
+  assert.equal(store.events.length, 0, 'Noise under 10 hits must be filtered out');
+
+  // 6 to 10 frames with fire (reaches 10 hits / 10 frames) -> Should emit alert
+  for (let i = 6; i <= 10; i++) {
+    const f = makeFrame(i);
+    store.record(inference(f, [detection('fire')]), f);
+  }
+  assert.equal(store.events.length, 1, '10 persistent hits must trigger alert');
+  assert.equal(store.latest().sequence, 10);
 });
 
 test('evidence renderer draws FIRE and SMOKE boxes without mutating the inference frame', () => {

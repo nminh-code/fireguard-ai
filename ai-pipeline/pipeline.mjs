@@ -56,6 +56,7 @@ export class FramePipeline {
     this.alerts = new AlertStore({
       cameraId: settings.cameraId, cooldownMs: settings.alertCooldownMs,
       delayMs: settings.alertDelayMs, capacity: settings.alertCapacity, evidenceStore,
+      windowSize: settings.alertWindowSize ?? 15, requiredHits: settings.alertRequiredHits ?? 10,
     });
   }
 
