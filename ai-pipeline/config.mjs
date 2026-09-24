@@ -14,7 +14,7 @@ export function findFfmpeg(customPath) {
   if (customPath && customPath !== 'ffmpeg' && existsSync(customPath)) return customPath;
   try {
     const cmd = process.platform === 'win32' ? 'where' : 'which';
-    const res = spawnSync(cmd, ['ffmpeg'], { windowsHide: true, shell: true });
+    const res = spawnSync(cmd, ['ffmpeg'], { windowsHide: true });
     if (res.status === 0 && res.stdout) {
       const lines = res.stdout.toString().split(/\r?\n/);
       for (const line of lines) {

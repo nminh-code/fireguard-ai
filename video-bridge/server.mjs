@@ -21,7 +21,7 @@ function findFfmpeg() {
 
   try {
     const cmd = process.platform === 'win32' ? 'where' : 'which';
-    const res = spawnSync(cmd, ['ffmpeg'], { windowsHide: true, shell: true });
+    const res = spawnSync(cmd, ['ffmpeg'], { windowsHide: true });
     if (res.status === 0 && res.stdout) {
       const lines = res.stdout.toString().split(/\r?\n/);
       for (const line of lines) {
@@ -47,7 +47,7 @@ function findGo2rtc() {
   }
   try {
     const cmd = process.platform === 'win32' ? 'where' : 'which';
-    const res = spawnSync(cmd, ['go2rtc'], { windowsHide: true, shell: true });
+    const res = spawnSync(cmd, ['go2rtc'], { windowsHide: true });
     if (res.status === 0 && res.stdout) {
       const line = res.stdout.toString().split(/\r?\n/)[0].trim().replace(/^"+|"+$/g, '');
       if (line && existsSync(line)) return line;
@@ -69,7 +69,7 @@ let go2rtcChild = null;
 function ensureGo2rtc() {
   if (!go2rtcExe || go2rtcChild) return;
   try {
-    go2rtcChild = spawn(go2rtcExe, [], { cwd: bridgeDir, windowsHide: true, stdio: 'ignore' });
+    go2rtcChild = spawn(go2rtcExe, ['-config', path.join(bridgeDir, 'go2rtc.yaml')], { cwd: bridgeDir, windowsHide: true, stdio: 'ignore' });
     go2rtcChild.once('exit', () => { go2rtcChild = null; });
   } catch {}
 }
@@ -330,17 +330,22 @@ app.get('/api/v1/cameras/:id/status', (req, res) => {
     elapsedSeconds: (Date.now() - child.startedAt) / 1000, ...child.metrics });
 });
 
-app.post('/api/v1/cameras', (req, res) => {
+app.post('/api/v1/cameras', async (req, res) => {
   try {
     const config = req.body;
-    if (config && config.id && config.ip && config.password) {
+    if (config && config.id && (config.ip || config.streamUrl)) {
       const rtspUrl = buildRtspUrl(config);
       
-      // Cập nhật cấu hình vào go2rtc để tự động proxy camera này vào lần khởi động sau
+      // Cập nhật cấu hình vào go2rtc để tự động proxy camera này
       const yamlPath = path.join(bridgeDir, 'go2rtc.yaml');
-      const yamlContent = `streams:\n  ${config.id}: "${rtspUrl}"\n`;
+      const yamlContent = `streams:\n  ${config.id}:\n    - ${rtspUrl}\n`;
       writeFileSync(yamlPath, yamlContent, 'utf8');
       
+      // Đăng ký/cập nhật luồng trực tiếp vào bộ nhớ go2rtc đang chạy
+      try {
+        await syncGo2rtcStream(config.id, rtspUrl);
+      } catch (e) {}
+
       // Tự động trỏ AI Pipeline sang camera mới (thông qua luồng ảo)
       const envPath = path.join(bridgeDir, '../.env.ai.local');
       if (existsSync(envPath)) {

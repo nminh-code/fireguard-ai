@@ -19,6 +19,11 @@ echo 2. Dong cac cua so dich vu...
 taskkill /FI "WINDOWTITLE eq FireGuard AI - Video Bridge*" /F >nul 2>&1
 taskkill /FI "WINDOWTITLE eq FireGuard AI - AI Pipeline*" /F >nul 2>&1
 taskkill /FI "WINDOWTITLE eq FireGuard AI - Web Frontend*" /F >nul 2>&1
+taskkill /IM go2rtc.exe /F >nul 2>&1
+
+:: 3. Giai phong cac cong 8790, 8787, 1984
+echo 3. Giai phong cac cong 8790, 8787, 1984...
+powershell -Command "Get-NetTCPConnection -LocalPort 8790,8787,1984 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"
 
 echo.
 echo ===================================================
