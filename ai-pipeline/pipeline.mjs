@@ -8,7 +8,8 @@ import { AlertStore } from './alert-store.mjs';
 import { EvidenceStore } from './evidence-store.mjs';
 
 export function extractionArgs(settings, rtspUrl) {
-  const { width, height, fps, transport } = settings;
+  const { width, height, transport } = settings;
+  const fps = settings.targetFps ?? settings.fps;
   return [
     '-hide_banner', '-nostdin', '-nostats', '-loglevel', 'error',
     '-threads', '1', '-rtsp_transport', transport,

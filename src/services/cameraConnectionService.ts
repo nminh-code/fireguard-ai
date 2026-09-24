@@ -32,8 +32,8 @@ const EZVIZ_MIGRATION_KEY = 'favis_camera02_ezviz_added';
 
 const CAMERA_02: CameraConnectionConfig = {
   id: 'camera-02-ezviz', name: 'Camera 02 EZVIZ', brand: 'Ezviz',
-  model: 'CS-C6N', ip: '192.168.1.11', port: 554, protocol: 'RTSP',
-  username: 'admin', password: '', streamUrl: 'rtsp://192.168.1.11:554/ch1/main',
+  model: 'CS-C6N', ip: '192.168.1.17', port: 554, protocol: 'RTSP',
+  username: 'admin', password: '', streamUrl: 'rtsp://192.168.1.17:554/h264/ch1/main',
 };
 
 const INITIAL_SAVED_CONFIGS: CameraConnectionConfig[] = [];
@@ -155,6 +155,7 @@ class CameraConnectionService {
           lastChecked: this.getFormattedTimestamp(),
           latencyMs: data.latencyMs,
           playbackUrl: data.playbackUrl,
+          webrtcUrl: data.webrtcUrl,
           details: data,
         };
       }
@@ -217,11 +218,10 @@ class CameraConnectionService {
 
     // Optionally notify backend if available in the future
     try {
-      const sanitizedConfig = safeConfig;
       fetch(CAMERA_API_ENDPOINTS.SAVE_CAMERA, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sanitizedConfig),
+        body: JSON.stringify(cameraConfig),
       }).catch(() => {});
     } catch {
       // Silent catch for mock phase

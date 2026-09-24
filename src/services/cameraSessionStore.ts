@@ -10,6 +10,7 @@ export interface SharedCameraStream {
   cameraName: string;
   status: CameraConnectionStatus;
   playbackUrl: string;
+  webrtcUrl?: string;
 }
 
 export interface CameraSessionSnapshot {
@@ -73,6 +74,9 @@ class CameraSessionStore {
     const playbackUrl = typeof result.playbackUrl === 'string'
       ? result.playbackUrl
       : '';
+    const webrtcUrl = typeof result.webrtcUrl === 'string'
+      ? result.webrtcUrl
+      : undefined;
     const isConnected = result.status === 'CONNECTED' && playbackUrl.length > 0;
     const activeStream = isConnected
       ? {
@@ -81,6 +85,7 @@ class CameraSessionStore {
           cameraName: formData.name,
           status: result.status,
           playbackUrl,
+          webrtcUrl,
         }
       : this.snapshot.activeStream?.cameraId === result.cameraId
         ? null

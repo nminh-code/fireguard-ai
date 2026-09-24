@@ -188,5 +188,6 @@ export interface CameraConnectionResult {
   errorMessage?: string;
   latencyMs?: number;
   playbackUrl?: string;
+  webrtcUrl?: string;
   details?: Record<string, unknown>;
 }

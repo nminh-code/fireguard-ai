@@ -54,12 +54,12 @@ function fixture(t, overrides = {}) {
   return { session, children, dir };
 }
 
-test('UDP receive buffer and atomic HLS options remain enabled', () => {
+test('TCP receive buffer and atomic HLS options remain enabled', () => {
   const args = ffmpegArgs('rtsp://camera/onvif2');
-  assert.equal(args[args.indexOf('-rtsp_transport') + 1], 'udp');
-  assert.equal(args[args.indexOf('-buffer_size') + 1], '4194304');
+  assert.equal(args[args.indexOf('-rtsp_transport') + 1], 'tcp');
+  assert.equal(args[args.indexOf('-buffer_size') + 1], '10240000');
   assert.match(args[args.indexOf('-hls_flags') + 1], /temp_file.*append_list/);
-  assert.ok(!args.includes('tcp'));
+  assert.ok(!args.includes('udp'));
 });
 
 test('exit reconnect waits for close; old playlist cannot report CONNECTED', async t => {

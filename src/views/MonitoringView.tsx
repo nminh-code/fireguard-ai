@@ -142,7 +142,10 @@ export const MonitoringView: React.FC = () => {
 
         {cameraSession.activeStream ? (
           <>
-            <HlsVideoPlayer src={cameraSession.activeStream.playbackUrl} />
+            <HlsVideoPlayer
+              src={cameraSession.activeStream.playbackUrl}
+              webrtcUrl={cameraSession.activeStream.webrtcUrl}
+            />
             <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-600">
               <span>Camera: <strong className="text-slate-900">{cameraSession.activeStream.cameraName}</strong></span>
               <span>ID: <strong className="text-slate-900">{cameraSession.activeStream.cameraId}</strong></span>

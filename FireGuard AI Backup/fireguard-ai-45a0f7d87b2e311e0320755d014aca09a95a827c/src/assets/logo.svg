@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <linearGradient id="fireOuterGrad" x1="10%" y1="100%" x2="90%" y2="0%">
+      <stop offset="0%" stop-color="#B91C1C" />
+      <stop offset="35%" stop-color="#EF4444" />
+      <stop offset="75%" stop-color="#F97316" />
+      <stop offset="100%" stop-color="#FBBF24" />
+    </linearGradient>
+
+    <linearGradient id="fireInnerGrad" x1="20%" y1="100%" x2="80%" y2="10%">
+      <stop offset="0%" stop-color="#C2410C" />
+      <stop offset="45%" stop-color="#F59E0B" />
+      <stop offset="85%" stop-color="#FDE047" />
+      <stop offset="100%" stop-color="#FFFFFF" />
+    </linearGradient>
+
+    <linearGradient id="fireSparkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#FEF08A" />
+    </linearGradient>
+
+    <linearGradient id="fireTechRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EF4444" stop-opacity="0.9" />
+      <stop offset="50%" stop-color="#F59E0B" stop-opacity="0.4" />
+      <stop offset="100%" stop-color="#06B6D4" stop-opacity="0.8" />
+    </linearGradient>
+  </defs>
+
+  <rect width="100" height="100" rx="22" fill="#090D16" />
+  <rect width="100" height="100" rx="22" fill="none" stroke="#EF4444" stroke-opacity="0.4" stroke-width="2" />
+
+  <path
+    d="M50 8 L85 24 V52 C85 72 70 87 50 92 C30 87 15 72 15 52 V24 L50 8 Z"
+    fill="none"
+    stroke="url(#fireTechRingGrad)"
+    stroke-width="2"
+    stroke-dasharray="5 3"
+    opacity="0.6"
+  />
+
+  <!-- Main Outer Flame Layer -->
+  <path
+    d="M50 14 
+       C54 22, 62 27, 68 33 
+       C77 41, 83 51, 82 64 
+       C80 79, 66 90, 50 90 
+       C34 90, 20 79, 18 63 
+       C17 48, 25 38, 32 31 
+       C37 26, 41 20, 42 14 
+       C44 21, 48 24, 50 14 Z"
+    fill="url(#fireOuterGrad)"
+  />
+
+  <!-- Inner Flame Layer -->
+  <path
+    d="M50 31 
+       C54 38, 59 42, 64 47 
+       C70 53, 73 61, 72 70 
+       C70 79, 61 85, 50 85 
+       C39 85, 30 79, 28 69 
+       C27 59, 34 51, 40 45 
+       C43 42, 45 37, 46 31 
+       C48 36, 49 38, 50 31 Z"
+    fill="url(#fireInnerGrad)"
+  />
+
+  <!-- Core Hotspot Flame Tip -->
+  <path
+    d="M50 46 
+       C53 50, 56 54, 59 57 
+       C63 62, 64 67, 63 72 
+       C62 78, 57 82, 50 82 
+       C43 82, 38 77, 37 71 
+       C36 64, 41 59, 45 54 
+       C47 51, 49 49, 50 46 Z"
+    fill="#FFFBEB"
+  />
+
+  <!-- AI Intelligence Core Spark -->
+  <polygon
+    points="50,55 53,63 61,63 55,68 57,76 50,71 43,76 45,68 39,63 47,63"
+    fill="url(#fireSparkGrad)"
+  />
+  <circle cx="50" cy="66.5" r="2.5" fill="#EF4444" />
+
+  <circle cx="50" cy="20" r="2.5" fill="#FDE68A" />
+  <circle cx="76" cy="39" r="2" fill="#F87171" />
+  <circle cx="24" cy="39" r="2" fill="#F87171" />
+</svg>

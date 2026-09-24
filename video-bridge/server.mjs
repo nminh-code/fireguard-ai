@@ -1,19 +1,94 @@
 import express from 'express';
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import dotenv from 'dotenv';
 
 const app = express();
-const port = Number(process.env.VIDEO_BRIDGE_PORT || 8787);
 const bridgeDir = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(bridgeDir, '..', '.env.ai.local'), quiet: true });
+dotenv.config({ path: path.join(bridgeDir, '..', '.env.local'), quiet: true });
+dotenv.config({ path: path.join(bridgeDir, '..', '.env'), quiet: true });
+
+function findFfmpeg() {
+  const rawEnvPath = process.env.FFMPEG_PATH || process.env.AI_FFMPEG_PATH;
+  if (rawEnvPath) {
+    const cleanEnv = rawEnvPath.trim().replace(/^"+|"+$/g, '');
+    if (cleanEnv && cleanEnv !== 'ffmpeg' && existsSync(cleanEnv)) return cleanEnv;
+  }
+
+  try {
+    const cmd = process.platform === 'win32' ? 'where' : 'which';
+    const res = spawnSync(cmd, ['ffmpeg'], { windowsHide: true, shell: true });
+    if (res.status === 0 && res.stdout) {
+      const lines = res.stdout.toString().split(/\r?\n/);
+      for (const line of lines) {
+        const clean = line.trim().replace(/^"+|"+$/g, '');
+        if (clean && existsSync(clean)) return clean;
+      }
+    }
+  } catch {}
+
+  const defaultWindows = 'C:\\env\\ffmpeg-master-latest-win64-gpl\\ffmpeg-master-latest-win64-gpl\\bin\\ffmpeg.exe';
+  if (existsSync(defaultWindows)) return defaultWindows;
+
+  return 'ffmpeg';
+}
+
+function findGo2rtc() {
+  const localExe = path.join(bridgeDir, 'bin', 'go2rtc.exe');
+  if (existsSync(localExe)) return localExe;
+  const envPath = process.env.GO2RTC_PATH;
+  if (envPath) {
+    const clean = envPath.trim().replace(/^"+|"+$/g, '');
+    if (clean && existsSync(clean)) return clean;
+  }
+  try {
+    const cmd = process.platform === 'win32' ? 'where' : 'which';
+    const res = spawnSync(cmd, ['go2rtc'], { windowsHide: true, shell: true });
+    if (res.status === 0 && res.stdout) {
+      const line = res.stdout.toString().split(/\r?\n/)[0].trim().replace(/^"+|"+$/g, '');
+      if (line && existsSync(line)) return line;
+    }
+  } catch {}
+  return null;
+}
+
+const port = Number(process.env.VIDEO_BRIDGE_PORT || 8787);
 const streamsDir = path.join(bridgeDir, 'streams');
 const sessions = new Map();
 const requests = new Map();
 const sourceRequests = new Map();
-const ffmpeg = process.env.FFMPEG_PATH || 'ffmpeg';
+const ffmpeg = findFfmpeg();
 const ffmpegAvailable = spawnSync(ffmpeg, ['-version'], { windowsHide: true }).status === 0;
+const go2rtcExe = findGo2rtc();
+let go2rtcChild = null;
+
+function ensureGo2rtc() {
+  if (!go2rtcExe || go2rtcChild) return;
+  try {
+    go2rtcChild = spawn(go2rtcExe, [], { cwd: bridgeDir, windowsHide: true, stdio: 'ignore' });
+    go2rtcChild.once('exit', () => { go2rtcChild = null; });
+  } catch {}
+}
+
+async function syncGo2rtcStream(cameraId, rtspUrl) {
+  if (!go2rtcExe) return null;
+  ensureGo2rtc();
+  const apiUrl = `http://127.0.0.1:1984/api/streams?name=${encodeURIComponent(cameraId)}&src=${encodeURIComponent(rtspUrl)}`;
+  for (let i = 0; i < 5; i++) {
+    try {
+      const res = await fetch(apiUrl, { method: 'PUT' });
+      if (res.ok) return `ws://127.0.0.1:1984/api/ws?src=${encodeURIComponent(cameraId)}`;
+    } catch {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+  return null;
+}
+
 const STALE_MS = 20000;
 mkdirSync(streamsDir, { recursive: true });
 
@@ -143,19 +218,31 @@ app.post('/api/v1/cameras/test-connection', async (req, res) => {
     if (requests.get(id) !== streamId || sourceRequests.get(sourceKey) !== streamId) {
       throw new Error('Đã có yêu cầu kiểm tra mới hơn.');
     }
-    mkdirSync(outputDir, { recursive: true });
+    
+    // Đăng ký luồng vào go2rtc trước để làm Proxy trung tâm
+    let webrtcUrl = null;
+    try {
+      webrtcUrl = await syncGo2rtcStream(id, rtspUrl);
+    } catch (e) {}
+    
+    // Nếu go2rtc chạy OK, FFmpeg sẽ lấy luồng từ go2rtc thay vì gọi ra camera
+    const proxyRtspUrl = webrtcUrl ? `rtsp://127.0.0.1:8554/${id}` : rtspUrl;
 
+    const fps = process.env.VIDEO_BRIDGE_FPS;
+    const vfFilter = fps ? `setpts=PTS-STARTPTS,fps=${fps}` : 'setpts=PTS-STARTPTS';
+
+    mkdirSync(outputDir, { recursive: true });
     child = spawn(ffmpeg, [
       '-hide_banner', '-nostdin', '-loglevel', 'warning', '-nostats', '-progress', 'pipe:1',
-      '-rtsp_transport', 'udp',
+      '-rtsp_transport', 'tcp', '-buffer_size', '10240000', '-analyzeduration', '1000000',
       // Use receive time, not the camera's drifting/discontinuous RTP clock.
       '-use_wallclock_as_timestamps', '1', '-fflags', '+genpts+discardcorrupt',
-      '-i', rtspUrl,
-      '-map', '0:v:0', '-an', '-vf', 'setpts=PTS-STARTPTS', '-fps_mode', 'vfr',
+      '-i', proxyRtspUrl,
+      '-map', '0:v:0', '-an', '-vf', vfFilter, '-fps_mode', 'vfr',
       '-c:v', 'libx264', '-preset', 'veryfast', '-tune', 'zerolatency',
-      '-pix_fmt', 'yuv420p', '-g', '30', '-keyint_min', '30', '-sc_threshold', '0',
-      '-force_key_frames', 'expr:gte(t,n_forced*2)',
-      '-f', 'hls', '-hls_time', '2', '-hls_list_size', '10',
+      '-pix_fmt', 'yuv420p', '-g', '15', '-keyint_min', '15', '-sc_threshold', '0',
+      '-force_key_frames', 'expr:gte(t,n_forced*1)',
+      '-f', 'hls', '-hls_time', '1', '-hls_list_size', '5',
       // Keep an extra 120 seconds for clients fetching a previous playlist.
       // Publish completed segments atomically before advertising them.
       '-hls_delete_threshold', '60',
@@ -202,8 +289,9 @@ app.post('/api/v1/cameras/test-connection', async (req, res) => {
       streamStatus: 'AVAILABLE',
       apiStatus: 'AVAILABLE',
       playbackUrl: `/streams/${streamId}/index.m3u8`,
+      webrtcUrl: webrtcUrl || null,
       latencyMs: Date.now() - started,
-      transport: 'UDP',
+      transport: 'TCP',
       outputCodec: 'H.264',
     });
   } catch (error) {
@@ -242,7 +330,33 @@ app.get('/api/v1/cameras/:id/status', (req, res) => {
     elapsedSeconds: (Date.now() - child.startedAt) / 1000, ...child.metrics });
 });
 
-app.post('/api/v1/cameras', (_req, res) => res.json({ success: true }));
+app.post('/api/v1/cameras', (req, res) => {
+  try {
+    const config = req.body;
+    if (config && config.id && config.ip && config.password) {
+      const rtspUrl = buildRtspUrl(config);
+      
+      // Cập nhật cấu hình vào go2rtc để tự động proxy camera này vào lần khởi động sau
+      const yamlPath = path.join(bridgeDir, 'go2rtc.yaml');
+      const yamlContent = `streams:\n  ${config.id}: "${rtspUrl}"\n`;
+      writeFileSync(yamlPath, yamlContent, 'utf8');
+      
+      // Tự động trỏ AI Pipeline sang camera mới (thông qua luồng ảo)
+      const envPath = path.join(bridgeDir, '../.env.ai.local');
+      if (existsSync(envPath)) {
+        let envContent = readFileSync(envPath, 'utf8');
+        envContent = envContent.replace(/^AI_CAMERA_ID=.*$/m, `AI_CAMERA_ID=${config.id}`);
+        envContent = envContent.replace(/^AI_RTSP_URL=.*$/m, `AI_RTSP_URL=rtsp://127.0.0.1:8554/${config.id}`);
+        envContent = envContent.replace(/^AI_CAMERA_USERNAME=.*$/m, `AI_CAMERA_USERNAME=`);
+        envContent = envContent.replace(/^AI_CAMERA_PASSWORD=.*$/m, `AI_CAMERA_PASSWORD=`);
+        writeFileSync(envPath, envContent, 'utf8');
+      }
+    }
+  } catch (e) {
+    console.error('Lỗi khi lưu cấu hình backend:', e);
+  }
+  res.json({ success: true });
+});
 app.get('/health', (_req, res) => res.json({ ok: true, ffmpeg: ffmpegAvailable }));
 
 const server = app.listen(port, '127.0.0.1', () => {
@@ -251,6 +365,9 @@ const server = app.listen(port, '127.0.0.1', () => {
 
 async function shutdown() {
   await Promise.allSettled([...sessions.keys()].map(stopSession));
+  if (go2rtcChild && go2rtcChild.exitCode === null) {
+    try { go2rtcChild.kill('SIGTERM'); } catch {}
+  }
   server.close(() => process.exit(0));
 }
 process.on('SIGINT', shutdown);

@@ -239,7 +239,7 @@ test('camera URL is constructed only from backend settings; secrets are not in p
   assert.equal(decodeURIComponent(url.username), env.AI_CAMERA_USERNAME);
   assert.equal(decodeURIComponent(url.password), env.AI_CAMERA_PASSWORD);
   assert.ok(!JSON.stringify(readSettings(env)).includes(env.AI_CAMERA_PASSWORD));
-  for (const invalid of ['file:///private', 'http://localhost/onvif2', 'rtsp://localhost/other', 'rtsp://u:p@localhost/onvif2']) {
+  for (const invalid of ['file:///private', 'http://localhost/onvif2', 'rtsp://localhost', 'rtsp://u:p@localhost/onvif2']) {
     assert.throws(() => cameraUrl({ AI_RTSP_URL: invalid }));
   }
   assert.throws(() => readSettings({ AI_FRAME_FPS: '100' }));
@@ -250,7 +250,7 @@ test('FFmpeg extraction reads RTSP once, samples without CFR, writes only raw fr
   const args = extractionArgs(settings, testUrl);
   assert.equal(args.filter(arg => arg === '-i').length, 1);
   assert.equal(args[args.indexOf('-i') + 1], testUrl);
-  assert.equal(args[args.indexOf('-rtsp_transport') + 1], 'udp');
+  assert.equal(args[args.indexOf('-rtsp_transport') + 1], 'tcp');
   assert.equal(args[args.indexOf('-fps_mode') + 1], 'passthrough');
   assert.match(args[args.indexOf('-vf') + 1], /select=.*prev_selected_t/);
   assert.equal(args.at(-1), 'pipe:1');

@@ -1,0 +1,3 @@
+streams:
+  camera-84b178f0-b282-40a8-a749-1e164f872ece:
+    - rtsp://admin:a12345678@192.168.1.17:554/h264/ch1/sub/av_stream

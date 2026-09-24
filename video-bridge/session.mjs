@@ -23,17 +23,18 @@ export function readHls(directory) {
     playlistAgeMs: Date.now() - statSync(file).mtimeMs };
 }
 
-export function ffmpegArgs(rtspUrl) {
+export function ffmpegArgs(rtspUrl, fps = process.env.VIDEO_BRIDGE_FPS) {
+  const vfFilter = fps ? `setpts=PTS-STARTPTS,fps=${fps}` : 'setpts=PTS-STARTPTS';
   return [
     '-hide_banner', '-nostdin', '-loglevel', 'warning', '-nostats', '-progress', 'pipe:1',
-    '-rtsp_transport', 'udp', '-buffer_size', '4194304',
+    '-rtsp_transport', 'tcp', '-buffer_size', '10240000',
     '-use_wallclock_as_timestamps', '1', '-fflags', '+genpts+discardcorrupt',
     '-i', rtspUrl,
-    '-map', '0:v:0', '-an', '-vf', 'setpts=PTS-STARTPTS', '-fps_mode', 'vfr',
+    '-map', '0:v:0', '-an', '-vf', vfFilter, '-fps_mode', 'vfr',
     '-c:v', 'libx264', '-preset', 'veryfast', '-tune', 'zerolatency',
-    '-pix_fmt', 'yuv420p', '-g', '30', '-keyint_min', '30', '-sc_threshold', '0',
-    '-force_key_frames', 'expr:gte(t,n_forced*2)',
-    '-f', 'hls', '-hls_time', '2', '-hls_list_size', '10',
+    '-pix_fmt', 'yuv420p', '-g', '15', '-keyint_min', '15', '-sc_threshold', '0',
+    '-force_key_frames', 'expr:gte(t,n_forced*1)',
+    '-f', 'hls', '-hls_time', '1', '-hls_list_size', '5',
     '-hls_delete_threshold', '60',
     // append_list preserves media sequence and inserts a discontinuity at restart.
     // The old process MUST be closed before another writer opens this directory.
