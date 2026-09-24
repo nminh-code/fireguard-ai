@@ -1,5 +1,5 @@
 {
-  "exclude": ["node_modules", "dist", "video-bridge/streams"],
+  "exclude": ["node_modules", "dist", "video-bridge/streams", "FireGuard AI Backup", "test_hls_out"],
   "compilerOptions": {
     "target": "ES2022",
     "experimentalDecorators": true,

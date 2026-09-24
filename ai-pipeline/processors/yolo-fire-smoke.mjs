@@ -41,7 +41,7 @@ while True:
         rgb = np.frombuffer(raw, dtype=np.uint8).reshape(height, width, 3)
         # Ultralytics ndarray input is BGR, while the frame API is RGB24.
         bgr = np.ascontiguousarray(rgb[:, :, ::-1])
-        result = model.predict(source=bgr, conf=confidence, verbose=False, save=False)[0]
+        result = model.predict(source=bgr, conf=confidence, imgsz=max(width, height), verbose=False, save=False)[0]
         detections = []
         for box in result.boxes:
             name = names[int(box.cls[0])]
