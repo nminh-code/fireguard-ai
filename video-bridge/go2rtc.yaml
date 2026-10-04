@@ -3,3 +3,15 @@ streams:
     - rtsp://admin:a12345678@192.168.1.17:554/h264/ch1/sub/av_stream
   camera-0372cfc2-7419-4838-b5a8-af9c5b381ed7:
     - rtsp://admin:Diem!123@192.168.1.8:554/onvif2
+  camera-119573ac-12e4-4123-94a3-11f9aeffccb6:
+    - rtsp://admin:Diem!123@192.168.1.8:554/onvif2
+  camera-69bbcda1-4a2c-43ad-879e-7916e218aba5:
+    - rtsp://admin:Diem!123@192.168.1.8:554/onvif2
+  camera-6f1a1d21-a96d-4246-9fd8-3e1c0d6ebb01:
+    - rtsp://admin:Diem!123@192.168.1.8:554/onvif2
+  camera-5e44b608-d8d3-40df-9633-d54324a37b94:
+    - rtsp://admin:Diem!123@192.168.1.8:554/onvif2
+  camera-a15fe405-c68e-459e-93a5-2df7907fbd2e:
+    - rtsp://admin:Diem!123@192.168.1.8:554/onvif2
+  camera-4e1dee1f-fd27-452d-b7e1-cf18c1f61193:
+    - rtsp://admin:Diem!123@192.168.1.8:554/onvif2

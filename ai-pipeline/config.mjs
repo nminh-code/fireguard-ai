@@ -45,10 +45,11 @@ export function readSettings(env = process.env) {
   if (!['udp', 'tcp'].includes(transport)) throw new Error('Invalid AI_RTSP_TRANSPORT.');
   const cameraId = env.AI_CAMERA_ID || 'camera-onvif2';
   if (!/^[a-zA-Z0-9_-]{1,64}$/.test(cameraId)) throw new Error('Invalid AI_CAMERA_ID.');
+  const cleanPath = val => val ? String(val).trim().replace(/^"+|"+$/g, '') : undefined;
   return Object.freeze({
     port: numberSetting(env, 'AI_FRAME_PORT', 8790, 1024, 65535),
     cameraId,
-    ffmpeg: findFfmpeg(env.AI_FFMPEG_PATH || env.FFMPEG_PATH),
+    ffmpeg: findFfmpeg(cleanPath(env.AI_FFMPEG_PATH || env.FFMPEG_PATH)),
     transport,
     fps: numberSetting(env, 'AI_FRAME_FPS', 1, 0.2, 5, false),
     targetFps: numberSetting(env, 'AI_TARGET_FPS', 5, 0.2, 5, false),
@@ -58,7 +59,7 @@ export function readSettings(env = process.env) {
     connectTimeoutMs: numberSetting(env, 'AI_CONNECT_TIMEOUT_MS', 25000, 10000, 60000),
     processTimeoutMs: numberSetting(env, 'AI_PROCESS_TIMEOUT_MS', 30000, 1000, 120000),
     modelLoadTimeoutMs: numberSetting(env, 'AI_MODEL_LOAD_TIMEOUT_MS', 120000, 1000, 300000),
-    python: env.AI_PYTHON_PATH || 'python',
+    python: cleanPath(env.AI_PYTHON_PATH) || 'python',
     model: path.resolve(root, env.AI_MODEL_PATH || 'models/best.pt'),
     confidence: numberSetting(env, 'AI_CONFIDENCE', 0.5, 0, 1, false),
     alertCooldownMs: numberSetting(env, 'AI_ALERT_COOLDOWN_MS', 30000, 1000, 3600000),
