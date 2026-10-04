@@ -26,6 +26,8 @@ export function findFfmpeg(customPath) {
 
   const defaultWindows = 'C:\\env\\ffmpeg-master-latest-win64-gpl\\ffmpeg-master-latest-win64-gpl\\bin\\ffmpeg.exe';
   if (existsSync(defaultWindows)) return defaultWindows;
+  const programFilesWindows = 'C:\\Program Files\\File Converter\\ffmpeg.exe';
+  if (existsSync(programFilesWindows)) return programFilesWindows;
 
   return customPath || 'ffmpeg';
 }
