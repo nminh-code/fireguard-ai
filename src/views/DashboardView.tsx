@@ -9,6 +9,7 @@ import {
   History,
   Flame,
   Wind,
+  HardHat,
   ArrowRight,
   Maximize2,
   CheckCircle2,
@@ -374,28 +375,25 @@ export const DashboardView: React.FC = () => {
             )}
           </div>
 
-          {/* Card: Trạng thái module AI */}
+          {/* Card: AI MONITORING */}
           <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs">
             <div className="border-b border-slate-100 pb-2.5 mb-3">
               <div className="flex items-center gap-2">
                 <Cpu className="h-4 w-4 text-slate-800" />
-                <h2 className="text-sm font-bold text-slate-900">
-                  Trạng thái module AI
+                <h2 className="text-sm font-bold text-slate-900 tracking-wide">
+                  AI MONITORING
                 </h2>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Module 1: Phát hiện cháy */}
-              <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/50 p-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-50 border border-red-100 text-red-600">
-                    <Flame className="h-5 w-5" />
+            <div className="flex flex-col gap-2.5">
+              {/* Module 1: Fire Detection */}
+              <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/60 px-3.5 py-2.5">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-50 border border-red-100 text-red-600">
+                    <Flame className="h-4 w-4" />
                   </div>
-                  <div>
-                    <div className="text-xs font-bold text-slate-900">Phát hiện cháy</div>
-                    <div className="text-[11px] text-slate-500">Nhận diện lửa và vùng cháy</div>
-                  </div>
+                  <span className="text-xs font-bold text-slate-900">Fire Detection</span>
                 </div>
                 <span
                   className={`rounded-md px-2.5 py-1 text-[10px] font-black tracking-wider uppercase ${
@@ -408,18 +406,15 @@ export const DashboardView: React.FC = () => {
                 </span>
               </div>
 
-              {/* Module 2: Phát hiện khói */}
-              <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/50 p-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 border border-blue-100 text-blue-600">
-                    <Wind className="h-5 w-5" />
+              {/* Module 2: PPE Detection */}
+              <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/60 px-3.5 py-2.5">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-50 border border-amber-100 text-amber-600">
+                    <HardHat className="h-4 w-4" />
                   </div>
-                  <div>
-                    <div className="text-xs font-bold text-slate-900">Phát hiện khói</div>
-                    <div className="text-[11px] text-slate-500">Phát hiện khói và cảnh báo sớm</div>
-                  </div>
+                  <span className="text-xs font-bold text-slate-900">PPE Detection</span>
                 </div>
-                <span className="rounded-md bg-slate-100 px-2.5 py-1 text-[10px] font-black text-slate-500 tracking-wider uppercase">
+                <span className="rounded-md bg-slate-100 px-2.5 py-1 text-[10px] font-black text-slate-500 tracking-wider uppercase border border-slate-200/60">
                   STANDBY
                 </span>
               </div>
