@@ -28,7 +28,10 @@ class IncidentService {
         data.alerts.forEach((alert) => {
           if (!this.syncedAlertIds.has(alert.id)) {
             this.syncedAlertIds.add(alert.id);
-            this.createIncidentFromRealAlert(alert);
+            // Only fire detections generate real incidents; smoke alerts are ignored for incidents
+            if (alert.class === 'fire') {
+              this.createIncidentFromRealAlert(alert);
+            }
           }
         });
       }
@@ -37,7 +40,10 @@ class IncidentService {
     }
   }
 
-  private createIncidentFromRealAlert(alert: MonitoringAlert): Incident {
+  private createIncidentFromRealAlert(alert: MonitoringAlert): Incident | null {
+    if (alert.class !== 'fire') {
+      return null;
+    }
     const savedCams = cameraConnectionService.getSavedCameras();
     const activeStream = cameraSessionStore.getSnapshot().activeStream;
 
@@ -62,7 +68,7 @@ class IncidentService {
       location: `${cameraName} (${location})`,
       eventType: 'FIRE_CONFIRMED',
       fireConfidence: Math.round(alert.confidence * 100),
-      smokeConfidence: alert.class === 'smoke' ? Math.round(alert.confidence * 100) : 0,
+      smokeConfidence: 0,
       severity: alert.confidence >= 0.85 ? 'HIGH' : 'MEDIUM',
       status: 'ACTIVE',
       detectedAt: timeStr,
@@ -71,8 +77,8 @@ class IncidentService {
         {
           id: `tl-${Date.now()}-1`,
           time: timeStr,
-          title: `AI phát hiện ${alert.class.toUpperCase()} từ camera ${cameraName}`,
-          description: `Mô hình AI phát hiện ${alert.class === 'fire' ? 'ngọn lửa' : 'khói'} với độ tin cậy ${(alert.confidence * 100).toFixed(1)}%. Sequence #${alert.sequence}.`,
+          title: `AI phát hiện FIRE từ camera ${cameraName}`,
+          description: `Mô hình AI phát hiện ngọn lửa với độ tin cậy ${(alert.confidence * 100).toFixed(1)}%. Sequence #${alert.sequence}.`,
           type: 'DETECTED',
           actor: 'Favis Edge AI Engine',
         },
