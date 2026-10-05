@@ -77,17 +77,6 @@ export const IncidentsView: React.FC = () => {
             Sự cố chỉ được tạo khi backend nhận event FIRE_CONFIRMED từ hệ thống AI Vision
           </p>
         </div>
-
-        <button
-          onClick={() => {
-            const inc = incidentService.simulateFireEvent();
-            navigate(`/incidents/${inc.id}`);
-          }}
-          className="flex items-center gap-2 rounded-lg bg-red-600 hover:bg-red-700 active:scale-98 text-white px-4 py-2 text-xs font-bold shadow-xs transition-all cursor-pointer self-start sm:self-auto"
-        >
-          <Zap className="h-3.5 w-3.5 text-yellow-300 fill-yellow-300" />
-          <span>KÍCH HOẠT SỰ CỐ MỚI (DEMO)</span>
-        </button>
       </div>
 
       {/* Filter and Search Bar */}

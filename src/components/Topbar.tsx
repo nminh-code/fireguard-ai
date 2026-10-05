@@ -32,10 +32,9 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, on
 
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState<number>(2);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
   const [showNotifMenu, setShowNotifMenu] = useState(false);
   const [showRoleMenu, setShowRoleMenu] = useState(false);
-  const [isSimulating, setIsSimulating] = useState(false);
 
   const initials = currentUser.name
     ? currentUser.name
@@ -70,17 +69,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, on
       unsubNotif();
     };
   }, []);
-
-  const handleSimulateFire = () => {
-    setIsSimulating(true);
-    soundManager.playFireAlarm();
-    const inc = incidentService.simulateFireEvent();
-    loadData();
-    setTimeout(() => {
-      setIsSimulating(false);
-      navigate(`/incidents/${inc.id}`);
-    }, 400);
-  };
 
   const handleResolveLatest = async () => {
     soundManager.playSuccessTone();
@@ -137,33 +125,17 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, on
 
       {/* Right side: Demo Event Simulation + Bell Notifications + User Profile */}
       <div className="flex items-center gap-3">
-        {/* Demo AI Event Simulation Buttons */}
-        {!isCameraTestOrMonitoring && (
-          <div className="flex items-center gap-1.5 bg-slate-100/90 p-1 rounded-lg border border-slate-200">
-            <button
-              onClick={handleSimulateFire}
-              disabled={isSimulating}
-              className="flex items-center gap-1.5 rounded-md bg-red-600 hover:bg-red-700 active:scale-98 text-white px-2.5 py-1.5 text-xs font-semibold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
-              title="Kích hoạt sự kiện cháy giả lập"
-              id="btn-simulate-fire"
-            >
-              <Zap className="h-3.5 w-3.5 text-yellow-300 fill-yellow-300" />
-              <span className="hidden sm:inline">GIẢ LẬP BÁO CHÁY</span>
-              <span className="sm:hidden">CHÁY</span>
-            </button>
-
-            {hasActiveFire && (
-              <button
-                onClick={handleResolveLatest}
-                className="flex items-center gap-1 rounded-md bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white px-2.5 py-1.5 text-xs font-semibold shadow-xs transition-all cursor-pointer"
-                title="Đánh dấu giải quyết sự cố cháy"
-                id="btn-resolve-fire"
-              >
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">KHẮC PHỤC</span>
-              </button>
-            )}
-          </div>
+        {/* Resolve button when active fire exists */}
+        {hasActiveFire && (
+          <button
+            onClick={handleResolveLatest}
+            className="flex items-center gap-1 rounded-md bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white px-2.5 py-1.5 text-xs font-semibold shadow-xs transition-all cursor-pointer"
+            title="Đánh dấu giải quyết sự cố cháy"
+            id="btn-resolve-fire"
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">KHẮC PHỤC SỰ CỐ</span>
+          </button>
         )}
 
         {/* Notifications Dropdown */}
