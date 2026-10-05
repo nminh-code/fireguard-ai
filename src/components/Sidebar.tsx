@@ -34,7 +34,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const navItems = [
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-    { name: 'Cameras', path: '/cameras', icon: Cctv },
     {
       name: 'Incidents',
       path: '/incidents',

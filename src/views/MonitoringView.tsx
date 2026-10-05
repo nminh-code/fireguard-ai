@@ -1,7 +1,27 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { AlertTriangle, CheckCircle2, ExternalLink, Flame, Radio, RefreshCw, ShieldAlert, Volume2, VolumeX, Wind } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import {
+  ShieldAlert,
+  Flame,
+  Wind,
+  HardHat,
+  Radio,
+  CheckCircle2,
+  AlertTriangle,
+  X,
+  ExternalLink,
+  Volume2,
+  VolumeX,
+  Maximize2,
+  Eye,
+  RefreshCw,
+  Video,
+  Layers,
+  ArrowRight,
+} from 'lucide-react';
 import { HlsVideoPlayer } from '../components/HlsVideoPlayer';
 import { cameraSessionStore } from '../services/cameraSessionStore';
+import { cameraConnectionService } from '../services/cameraConnectionService';
 import { monitoringAlertAudio } from '../services/monitoringAlertAudio';
 import {
   AlertHistoryResponse,
@@ -12,28 +32,53 @@ import {
   getAlertHistory,
   getLatestAlert,
 } from '../services/monitoringAlertService';
+import { CameraConnectionConfig } from '../types';
 
 const POLL_INTERVAL_MS = 2500;
 const REQUEST_TIMEOUT_MS = 5000;
 
-function AlertTypeIcon({ type }: { type: MonitoringAlert['class'] }) {
-  return type === 'fire' ? <Flame className="h-6 w-6" /> : <Wind className="h-6 w-6" />;
+interface MonitoringCameraItem {
+  id: string;
+  name: string;
+  location?: string;
+  brand?: string;
+  ip?: string;
+  isLiveStream: boolean;
+  playbackUrl?: string;
+  webrtcUrl?: string;
+  status: 'LIVE' | 'OFFLINE' | 'CONNECTING';
 }
 
 export const MonitoringView: React.FC = () => {
+  const navigate = useNavigate();
   const cameraSession = useSyncExternalStore(
     cameraSessionStore.subscribe,
     cameraSessionStore.getSnapshot
   );
+
+  const [savedCameras, setSavedCameras] = useState<CameraConnectionConfig[]>([]);
   const [history, setHistory] = useState<AlertHistoryResponse | null>(null);
   const [latest, setLatest] = useState<MonitoringAlert | null>(null);
   const [newAlertId, setNewAlertId] = useState<string | null>(null);
   const [connection, setConnection] = useState<'loading' | 'connected' | 'error'>('loading');
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [audioEnabled, setAudioEnabled] = useState(() => monitoringAlertAudio.isEnabled());
+
+  // Level 2 & Level 3 states
+  const [selectedCamera, setSelectedCamera] = useState<MonitoringCameraItem | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [evidenceLightboxAlert, setEvidenceLightboxAlert] = useState<MonitoringAlert | null>(null);
+
   const latestAlertKey = useRef<string | null>(null);
   const initialized = useRef(false);
 
+  // Load saved camera configurations
+  useEffect(() => {
+    const list = cameraConnectionService.getSavedCameras();
+    setSavedCameras(list);
+  }, [cameraSession]);
+
+  // AI Alert polling loop
   useEffect(() => {
     let disposed = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -44,8 +89,9 @@ export const MonitoringView: React.FC = () => {
       const controller = new AbortController();
       activeController = controller;
       const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-      try { return await operation(controller.signal); }
-      finally {
+      try {
+        return await operation(controller.signal);
+      } finally {
         clearTimeout(timeout);
         if (activeController === controller) activeController = undefined;
       }
@@ -67,19 +113,31 @@ export const MonitoringView: React.FC = () => {
         const current: LatestAlertResponse = await request(getLatestAlert);
         if (disposed) return;
         const currentId = current.alert?.id ?? null;
-        const currentAlertKey = current.alert ? `${current.alert.id}:${current.alert.sequence}` : null;
+        const currentAlertKey = current.alert
+          ? `${current.alert.id}:${current.alert.sequence}`
+          : null;
         setLatest(current.alert);
-        setHistory(previous => previous ? {
-          ...previous,
-          cameraId: current.cameraId,
-          sessionId: current.sessionId,
-          pipelineState: current.pipelineState,
-        } : previous);
-        if (initialized.current && current.alert && currentAlertKey !== latestAlertKey.current) {
+        setHistory((previous) =>
+          previous
+            ? {
+                ...previous,
+                cameraId: current.cameraId,
+                sessionId: current.sessionId,
+                pipelineState: current.pipelineState,
+              }
+            : previous
+        );
+        if (
+          initialized.current &&
+          current.alert &&
+          currentAlertKey !== latestAlertKey.current
+        ) {
           setNewAlertId(currentId);
           monitoringAlertAudio.handleAlert(current.alert);
         }
-        if (!initialized.current || currentAlertKey !== latestAlertKey.current) await refreshHistory();
+        if (!initialized.current || currentAlertKey !== latestAlertKey.current) {
+          await refreshHistory();
+        }
         latestAlertKey.current = currentAlertKey;
         initialized.current = true;
         setConnection('connected');
@@ -100,164 +158,564 @@ export const MonitoringView: React.FC = () => {
     };
   }, []);
 
-  const pipelineState = history?.pipelineState ?? 'IDLE';
-  const alerts = history?.alerts ?? [];
+  // Consolidate camera list for Level 1 Overview
+  const cameraList: MonitoringCameraItem[] = [];
+
+  if (cameraSession.activeStream?.connected) {
+    cameraList.push({
+      id: cameraSession.activeStream.cameraId,
+      name: cameraSession.activeStream.cameraName || 'Camera Live 01',
+      location: 'Phân xưởng sản xuất',
+      isLiveStream: true,
+      playbackUrl: cameraSession.activeStream.playbackUrl,
+      webrtcUrl: cameraSession.activeStream.webrtcUrl,
+      status: 'LIVE',
+    });
+  }
+
+  savedCameras.forEach((cam) => {
+    if (!cameraList.some((c) => c.id === cam.id)) {
+      cameraList.push({
+        id: cam.id,
+        name: cam.name,
+        location: cam.brand ? `${cam.brand} • ${cam.ip}` : cam.ip,
+        brand: cam.brand,
+        ip: cam.ip,
+        isLiveStream: false,
+        status: 'OFFLINE',
+      });
+    }
+  });
+
+  // Check if camera has an active alert
+  const getCameraAlert = (camId: string): MonitoringAlert | null => {
+    if (!latest) return null;
+    if (latest.cameraId === camId || latest.cameraId === 'CAM-01' || cameraList.length === 1) {
+      return latest;
+    }
+    return null;
+  };
+
+  const handleOpenDrawer = (cam: MonitoringCameraItem) => {
+    setSelectedCamera(cam);
+    setIsDrawerOpen(true);
+  };
+
+  const handleCloseDrawer = () => {
+    setIsDrawerOpen(false);
+  };
+
+  const activeAlerts = latest ? [latest] : [];
 
   return (
-    <div className="space-y-6" id="monitoring-view">
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <ShieldAlert className="h-6 w-6 text-red-600" />
-              <h1 className="text-xl font-black text-slate-900 md:text-2xl">Màn hình giám sát</h1>
-            </div>
-            <p className="mt-1 text-sm text-slate-500">Cảnh báo FIRE/SMOKE từ YOLO camera thật</p>
-          </div>
-          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
-            <Radio className={`h-4 w-4 ${connection === 'connected' ? 'text-emerald-600' : connection === 'error' ? 'text-red-600' : 'text-amber-600'}`} />
-            <span className="font-semibold text-slate-700">
-              {connection === 'loading' ? 'Đang kết nối Alert API' : connection === 'error' ? 'Mất kết nối Alert API' : `Pipeline: ${pipelineState}`}
+    <div className="relative space-y-5 pb-10" id="monitoring-view">
+      {/* Top Operational Header */}
+      <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <ShieldAlert className="h-5 w-5 text-red-600" />
+            <h1 className="text-xl font-bold tracking-tight text-slate-900">
+              Màn hình giám sát (Live Monitoring)
+            </h1>
+            <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700 font-mono">
+              {cameraList.length} CAMERAS
             </span>
           </div>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Trung tâm giám sát an toàn công nghiệp 24/7 — AI Fire & Smoke Detection
+          </p>
         </div>
-        {connection === 'error' && (
-          <div role="alert" className="mt-4 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-            <AlertTriangle className="h-5 w-5 shrink-0" />
-            Không đọc được backend tại 127.0.0.1:8790. Màn hình sẽ tự thử lại; lịch sử đang hiển thị có thể đã cũ.
+
+        {/* Status Indicators & Audio Control */}
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 font-medium">
+            <Radio
+              className={`h-3.5 w-3.5 ${
+                connection === 'connected'
+                  ? 'text-emerald-600 animate-pulse'
+                  : connection === 'error'
+                  ? 'text-red-600'
+                  : 'text-amber-500'
+              }`}
+            />
+            <span className="text-slate-700">
+              {connection === 'connected'
+                ? `Edge AI: ${history?.pipelineState || 'RUNNING'}`
+                : connection === 'error'
+                ? 'Edge AI: Mất kết nối'
+                : 'Đang kết nối...'}
+            </span>
           </div>
-        )}
+
+          <button
+            type="button"
+            onClick={() => {
+              const next = !audioEnabled;
+              monitoringAlertAudio.setEnabled(next);
+              setAudioEnabled(next);
+            }}
+            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 font-semibold transition-colors cursor-pointer ${
+              audioEnabled
+                ? 'border-slate-300 bg-white text-slate-800 hover:bg-slate-50'
+                : 'border-amber-300 bg-amber-50 text-amber-900'
+            }`}
+            title={audioEnabled ? 'Tắt còi cảnh báo' : 'Bật còi cảnh báo'}
+          >
+            {audioEnabled ? (
+              <Volume2 className="h-3.5 w-3.5 text-emerald-600" />
+            ) : (
+              <VolumeX className="h-3.5 w-3.5 text-amber-600" />
+            )}
+            <span>{audioEnabled ? 'Còi: BẬT' : 'Còi: TẮT'}</span>
+          </button>
+        </div>
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="font-bold text-slate-900">Camera Live</h2>
-          {cameraSession.activeStream?.connected && (
-            <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-              ONLINE
-            </span>
-          )}
+      {/* Connection Warning Banner */}
+      {connection === 'error' && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+          <span>
+            Không thể kết nối FastAPI tại <code>http://127.0.0.1:8790</code>. Đang thử kết nối lại tự động.
+          </span>
         </div>
-
-        {cameraSession.activeStream ? (
-          <>
-            <HlsVideoPlayer
-              src={cameraSession.activeStream.playbackUrl}
-              webrtcUrl={cameraSession.activeStream.webrtcUrl}
-            />
-            <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-600">
-              <span>Camera: <strong className="text-slate-900">{cameraSession.activeStream.cameraName}</strong></span>
-              <span>ID: <strong className="text-slate-900">{cameraSession.activeStream.cameraId}</strong></span>
-              <span>Status: <strong className="text-emerald-600">{cameraSession.activeStream.status}</strong></span>
-            </div>
-          </>
-        ) : (
-          <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">
-            Chưa có camera được kết nối. Hãy TEST CONNECTION trong Camera Test.
-          </p>
-        )}
-      </section>
-
-      {latest ? (
-        <section className={`rounded-xl border-2 p-5 shadow-md ${latest.class === 'fire' ? 'border-red-600 bg-red-50' : 'border-amber-500 bg-amber-50'}`}>
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex gap-3">
-              <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-white ${latest.class === 'fire' ? 'bg-red-600' : 'bg-amber-600'}`}>
-                <AlertTypeIcon type={latest.class} />
-              </div>
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-slate-900 px-2.5 py-1 text-xs font-black tracking-wider text-white">{latest.class.toUpperCase()}</span>
-                  {newAlertId === latest.id && <span className="rounded-full bg-red-600 px-2.5 py-1 text-xs font-bold text-white">CẢNH BÁO MỚI</span>}
-                  {latest.class === 'fire' && (
-                    <button
-                      type="button"
-                      aria-pressed={!audioEnabled}
-                      title={audioEnabled ? 'Tắt âm thanh cảnh báo' : 'Bật âm thanh cảnh báo'}
-                      onClick={() => {
-                        const nextEnabled = !audioEnabled;
-                        monitoringAlertAudio.setEnabled(nextEnabled);
-                        setAudioEnabled(nextEnabled);
-                      }}
-                      className="inline-flex items-center gap-1 rounded-full border border-black/10 bg-white/80 px-2 py-1 text-xs font-semibold text-slate-700 transition-colors hover:bg-white"
-                    >
-                      {audioEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
-                      {audioEnabled ? 'Tắt âm' : 'Bật âm'}
-                    </button>
-                  )}
-                </div>
-                <p className="mt-3 font-bold text-slate-900">Camera: {latest.cameraId}</p>
-                <p className="mt-1 text-sm text-slate-700">Confidence: <strong>{(latest.confidence * 100).toFixed(1)}%</strong></p>
-                <time className="mt-1 block text-sm text-slate-600" dateTime={latest.timestamp}>{formatMonitoringTime(latest.timestamp)}</time>
-                {latest.evidenceUrl && (
-                  <a href={evidenceHref(latest.evidenceUrl)} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2 text-sm font-bold text-white hover:bg-slate-700">
-                    <ExternalLink className="h-4 w-4" /> Xem ảnh bằng chứng
-                  </a>
-                )}
-              </div>
-            </div>
-            <div className="rounded-lg border border-black/10 bg-white/70 p-3 text-xs text-slate-600">
-              <div>Sequence: {latest.sequence}</div>
-              <div className="mt-1">Frame: {latest.width} × {latest.height}</div>
-            </div>
-          </div>
-        </section>
-      ) : (
-        <section className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-          <CheckCircle2 className="h-6 w-6 shrink-0 text-slate-400" />
-          <div>
-            <h2 className="font-bold text-slate-900">Chưa có cảnh báo từ backend</h2>
-            <p className="mt-1 text-sm text-slate-500">Trạng thái này chỉ cho biết danh sách alert đang trống; không thay thế việc kiểm tra camera và pipeline.</p>
-          </div>
-        </section>
       )}
 
-      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="font-bold text-slate-900">Lịch sử cảnh báo</h2>
-            <p className="mt-1 text-xs text-slate-500">Tối đa 20 alert gần nhất, mới nhất ở trên</p>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            <RefreshCw className={`h-3.5 w-3.5 ${connection === 'loading' ? 'animate-spin' : ''}`} />
-            {lastUpdated ? `Cập nhật: ${formatMonitoringTime(lastUpdated)}` : 'Chưa cập nhật'}
+      {/* LEVEL 1: Active Alerts Summary Banner (if any) */}
+      {activeAlerts.length > 0 && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3.5 shadow-xs animate-in fade-in-50">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-3 w-3 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600"></span>
+              </span>
+              <span className="font-bold text-sm text-red-900">
+                🔴 {activeAlerts.length} Cảnh báo đang hoạt động:
+              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                {activeAlerts.map((alt) => (
+                  <button
+                    key={alt.id}
+                    onClick={() => {
+                      const cam = cameraList.find((c) => c.id === alt.cameraId) || cameraList[0];
+                      if (cam) handleOpenDrawer(cam);
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-2.5 py-1 text-xs font-bold text-white shadow-2xs hover:bg-red-700 transition-colors cursor-pointer"
+                  >
+                    {alt.class === 'fire' ? (
+                      <Flame className="h-3 w-3" />
+                    ) : (
+                      <Wind className="h-3 w-3" />
+                    )}
+                    <span>
+                      {alt.cameraId} — {alt.class.toUpperCase()} DETECTED
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <span className="text-[11px] text-red-700 font-medium">
+              Nhấp vào camera để xem chi tiết AI & Bằng chứng
+            </span>
           </div>
         </div>
+      )}
 
-        {alerts.length ? (
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left text-sm">
-              <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
-                <tr><th className="px-3 py-2">Loại</th><th className="px-3 py-2">Camera</th><th className="px-3 py-2">Confidence</th><th className="px-3 py-2">Thời gian</th><th className="px-3 py-2">Sequence</th><th className="px-3 py-2">Bằng chứng</th></tr>
-              </thead>
-              <tbody>
-                {alerts.map(alert => (
-                  <tr key={alert.id} className="border-b border-slate-100 last:border-0">
-                    <td className="px-3 py-3"><span className={`rounded px-2 py-1 text-xs font-black text-white ${alert.class === 'fire' ? 'bg-red-600' : 'bg-amber-600'}`}>{alert.class.toUpperCase()}</span></td>
-                    <td className="px-3 py-3 font-semibold text-slate-900">{alert.cameraId}</td>
-                    <td className="px-3 py-3 tabular-nums">{(alert.confidence * 100).toFixed(1)}%</td>
-                    <td className="px-3 py-3 whitespace-nowrap"><time dateTime={alert.timestamp}>{formatMonitoringTime(alert.timestamp)}</time></td>
-                    <td className="px-3 py-3 tabular-nums">{alert.sequence}</td>
-                    <td className="px-3 py-3">
-                      {alert.evidenceUrl ? (
-                        <a href={evidenceHref(alert.evidenceUrl)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 whitespace-nowrap font-bold text-blue-700 hover:underline">
-                          <ExternalLink className="h-3.5 w-3.5" /> Xem ảnh
-                        </a>
-                      ) : <span className="text-slate-400">Không có</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* LEVEL 1: MONITORING OVERVIEW (Responsive Camera Grid) */}
+      {cameraList.length === 0 ? (
+        /* Empty State */
+        <div className="rounded-xl border-2 border-dashed border-slate-300 bg-white p-12 text-center shadow-2xs">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+            <Video className="h-7 w-7" />
           </div>
-        ) : (
-          <p className="mt-4 rounded-lg bg-slate-50 p-4 text-sm text-slate-500">Không có alert trong lịch sử backend.</p>
-        )}
-        {history && history.totalCreated > history.retained && (
-          <p className="mt-3 text-xs text-amber-700">Backend đã tạo {history.totalCreated} alert và đang giữ {history.retained}/{history.capacity} alert trong RAM.</p>
-        )}
-      </section>
+          <h2 className="mt-4 text-base font-bold text-slate-900">Chưa có camera nào được kết nối</h2>
+          <p className="mt-1 text-sm text-slate-500 max-w-md mx-auto">
+            Hệ thống chưa nhận diện luồng camera. Hãy chuyển qua trang Camera Test để kết nối camera CCTV/RTSP thật vào hệ thống.
+          </p>
+          <button
+            onClick={() => navigate('/camera-test')}
+            className="mt-5 inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-red-700 transition-colors cursor-pointer"
+          >
+            <Video className="h-4 w-4" />
+            <span>KẾT NỐI CAMERA NGAY</span>
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {cameraList.map((cam) => {
+            const camAlert = getCameraAlert(cam.id);
+            const isAlert = !!camAlert;
+
+            return (
+              <div
+                key={cam.id}
+                onClick={() => handleOpenDrawer(cam)}
+                className={`group relative flex flex-col rounded-xl border bg-white overflow-hidden shadow-2xs transition-all duration-150 cursor-pointer hover:shadow-md ${
+                  isAlert
+                    ? 'border-red-500 ring-2 ring-red-500/20'
+                    : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                {/* Card Header: Camera ID/Name + Status Indicator */}
+                <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-3.5 py-2.5">
+                  <div className="min-w-0 pr-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-xs text-slate-900 truncate">
+                        {cam.name}
+                      </span>
+                    </div>
+                    {cam.location && (
+                      <span className="text-[11px] text-slate-500 truncate block">
+                        {cam.location}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Status Badge */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {cam.status === 'LIVE' ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                        LIVE
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                        OFFLINE
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Video Screen Area */}
+                <div className="relative aspect-video w-full bg-slate-950 flex items-center justify-center overflow-hidden">
+                  {cam.isLiveStream && cam.playbackUrl ? (
+                    <div className="h-full w-full pointer-events-none">
+                      <HlsVideoPlayer
+                        src={cam.playbackUrl}
+                        webrtcUrl={cam.webrtcUrl}
+                        controls={false}
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-1 text-slate-500">
+                      <Video className="h-8 w-8 text-slate-600" />
+                      <span className="text-xs font-medium">Chưa có tín hiệu live</span>
+                    </div>
+                  )}
+
+                  {/* Hover Quick Inspection Button */}
+                  <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/90 px-3 py-1.5 text-xs font-bold text-slate-900 shadow-md backdrop-blur-xs">
+                      <Maximize2 className="h-3.5 w-3.5" />
+                      <span>Xem chi tiết</span>
+                    </span>
+                  </div>
+
+                  {/* Top-Right Alert Ribbon */}
+                  {isAlert && (
+                    <div className="absolute top-2 right-2 rounded-md bg-red-600 px-2 py-0.5 text-[10px] font-black text-white uppercase tracking-wide shadow-md animate-pulse">
+                      🔴 {camAlert.class.toUpperCase()} DETECTED
+                    </div>
+                  )}
+                </div>
+
+                {/* Card Footer: Normal or Alert Type */}
+                <div
+                  className={`px-3.5 py-2 text-xs flex items-center justify-between border-t ${
+                    isAlert
+                      ? 'bg-red-50 text-red-900 border-red-100 font-bold'
+                      : 'bg-white text-slate-600 border-slate-100 font-medium'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    {isAlert ? (
+                      <>
+                        <Flame className="h-3.5 w-3.5 text-red-600 shrink-0" />
+                        <span>CẢNH BÁO: {camAlert.class.toUpperCase()}</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                        <span>Trạng thái bình thường</span>
+                      </>
+                    )}
+                  </div>
+
+                  <span className="text-[11px] text-slate-400 group-hover:text-slate-700 transition-colors">
+                    Chi tiết &rarr;
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* LEVEL 2: CAMERA DETAIL SIDE DRAWER / PANEL */}
+      {isDrawerOpen && selectedCamera && (
+        <>
+          {/* Backdrop for drawer */}
+          <div
+            className="fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-2xs transition-opacity"
+            onClick={handleCloseDrawer}
+          />
+
+          {/* Side Drawer Container */}
+          <aside
+            className="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col bg-white shadow-2xl border-l border-slate-200 animate-in slide-in-from-right duration-200"
+            id="camera-detail-drawer"
+          >
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 bg-slate-50">
+              <div className="flex items-center gap-2.5">
+                <Video className="h-5 w-5 text-slate-800" />
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 leading-tight">
+                    {selectedCamera.name}
+                  </h2>
+                  <p className="text-xs text-slate-500 font-mono">
+                    ID: {selectedCamera.id} {selectedCamera.location ? `• ${selectedCamera.location}` : ''}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={handleCloseDrawer}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors cursor-pointer"
+                title="Đóng bảng chi tiết"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Drawer Body (Scrollable) */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-5">
+              {/* Enlarged Live Camera Stream */}
+              <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-950 shadow-md">
+                <div className="flex items-center justify-between bg-slate-900 px-3 py-1.5 text-[11px] font-mono text-slate-300">
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className={`h-2 w-2 rounded-full ${
+                        selectedCamera.status === 'LIVE'
+                          ? 'bg-emerald-500 animate-pulse'
+                          : 'bg-slate-500'
+                      }`}
+                    />
+                    <span className="font-bold">
+                      {selectedCamera.status === 'LIVE' ? 'LIVE STREAM' : 'OFFLINE'}
+                    </span>
+                  </div>
+                  <span>1080p @ 25fps</span>
+                </div>
+
+                <div className="aspect-video w-full bg-black">
+                  {selectedCamera.isLiveStream && selectedCamera.playbackUrl ? (
+                    <HlsVideoPlayer
+                      src={selectedCamera.playbackUrl}
+                      webrtcUrl={selectedCamera.webrtcUrl}
+                    />
+                  ) : (
+                    <div className="flex h-full w-full flex-col items-center justify-center text-slate-500">
+                      <Video className="h-10 w-10 mb-2" />
+                      <span className="text-xs">Camera chưa có luồng phát trực tiếp</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* AI Detection Details */}
+              {(() => {
+                const camAlert = getCameraAlert(selectedCamera.id);
+                if (camAlert) {
+                  return (
+                    <div className="rounded-xl border-2 border-red-500 bg-red-50/70 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-red-900 font-bold text-sm">
+                          <Flame className="h-4 w-4 text-red-600" />
+                          <span>PHÁT HIỆN SỰ CỐ: {camAlert.class.toUpperCase()}</span>
+                        </div>
+                        <span className="rounded-full bg-red-600 px-2.5 py-0.5 text-[10px] font-black text-white uppercase">
+                          HIGH SEVERITY
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 text-xs bg-white/80 p-3 rounded-lg border border-red-200">
+                        <div>
+                          <span className="text-slate-500 block">Độ tin cậy AI:</span>
+                          <strong className="text-slate-900 text-sm font-mono">
+                            {(camAlert.confidence * 100).toFixed(1)}%
+                          </strong>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block">Thời điểm phát hiện:</span>
+                          <strong className="text-slate-900 text-xs font-mono">
+                            {formatMonitoringTime(camAlert.timestamp)}
+                          </strong>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block">Frame Resolution:</span>
+                          <span className="text-slate-800 font-mono text-xs">
+                            {camAlert.width} &times; {camAlert.height}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block">Sequence ID:</span>
+                          <span className="text-slate-800 font-mono text-xs">
+                            #{camAlert.sequence}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Evidence Image Preview (Level 2 -> Level 3 Lightbox trigger) */}
+                      {camAlert.evidenceUrl && (
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-xs text-slate-700">
+                            <span className="font-bold">Ảnh bằng chứng (Snapshot AI):</span>
+                            <span className="text-[11px] text-slate-500">Chụp lúc phát hiện</span>
+                          </div>
+                          <div
+                            onClick={() => setEvidenceLightboxAlert(camAlert)}
+                            className="group relative aspect-video w-full rounded-lg border border-slate-300 bg-slate-900 overflow-hidden cursor-pointer hover:border-red-500 transition-colors"
+                          >
+                            <img
+                              src={evidenceHref(camAlert.evidenceUrl)}
+                              alt="Evidence Snapshot"
+                              className="h-full w-full object-cover group-hover:scale-102 transition-transform duration-200"
+                            />
+                            <div className="absolute inset-0 bg-slate-950/20 group-hover:bg-slate-950/40 flex items-center justify-center transition-colors">
+                              <span className="inline-flex items-center gap-1 rounded-md bg-slate-900/80 px-2.5 py-1 text-xs font-bold text-white backdrop-blur-xs">
+                                <Eye className="h-3.5 w-3.5" />
+                                <span>Phóng to bằng chứng</span>
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* View Incident Action */}
+                      <button
+                        onClick={() => {
+                          handleCloseDrawer();
+                          navigate('/incidents');
+                        }}
+                        className="w-full flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-red-700 transition-colors cursor-pointer"
+                      >
+                        <ShieldAlert className="h-4 w-4" />
+                        <span>QUẢN LÝ SỰ CỐ NÀY (VIEW INCIDENT)</span>
+                      </button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center space-y-1">
+                    <CheckCircle2 className="h-6 w-6 text-emerald-600 mx-auto" />
+                    <h3 className="text-xs font-bold text-slate-900">Không có cảnh báo hoạt động</h3>
+                    <p className="text-[11px] text-slate-500">
+                      Camera đang vận hành bình thường, không ghi nhận đám cháy hoặc vi phạm an toàn.
+                    </p>
+                  </div>
+                );
+              })()}
+
+              {/* Camera Connection Metadata */}
+              <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-2.5">
+                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+                  Thông số kết nối camera
+                </h3>
+                <div className="divide-y divide-slate-100 text-xs text-slate-600">
+                  <div className="flex justify-between py-1.5">
+                    <span className="text-slate-500">Địa chỉ IP:</span>
+                    <span className="font-mono text-slate-900">{selectedCamera.ip || '127.0.0.1'}</span>
+                  </div>
+                  <div className="flex justify-between py-1.5">
+                    <span className="text-slate-500">Giao thức:</span>
+                    <span className="font-semibold text-slate-900">RTSP / HLS Bridge</span>
+                  </div>
+                  <div className="flex justify-between py-1.5">
+                    <span className="text-slate-500">Thương hiệu:</span>
+                    <span className="text-slate-900">{selectedCamera.brand || 'Hikvision'}</span>
+                  </div>
+                  <div className="flex justify-between py-1.5">
+                    <span className="text-slate-500">Trạng thái:</span>
+                    <span
+                      className={`font-bold ${
+                        selectedCamera.status === 'LIVE' ? 'text-emerald-600' : 'text-slate-500'
+                      }`}
+                    >
+                      {selectedCamera.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </>
+      )}
+
+      {/* LEVEL 3: EVIDENCE DETAIL MODAL / LIGHTBOX */}
+      {evidenceLightboxAlert && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in-50">
+          <div className="relative flex flex-col w-full max-w-3xl rounded-2xl border border-slate-700 bg-slate-900 text-white shadow-2xl overflow-hidden">
+            {/* Lightbox Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-3.5 bg-slate-950">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="h-5 w-5 text-red-500" />
+                <h3 className="font-bold text-sm text-slate-100">
+                  Bằng Chứng AI (Evidence) — Camera {evidenceLightboxAlert.cameraId}
+                </h3>
+              </div>
+              <button
+                onClick={() => setEvidenceLightboxAlert(null)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Lightbox Body: Image */}
+            <div className="relative aspect-video w-full bg-black flex items-center justify-center overflow-hidden">
+              {evidenceLightboxAlert.evidenceUrl ? (
+                <img
+                  src={evidenceHref(evidenceLightboxAlert.evidenceUrl)}
+                  alt="Evidence Lightbox"
+                  className="max-h-full max-w-full object-contain"
+                />
+              ) : (
+                <span className="text-xs text-slate-500">Không có ảnh bằng chứng</span>
+              )}
+            </div>
+
+            {/* Lightbox Footer: Metadata details */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-slate-800 bg-slate-950 p-4 text-xs font-mono">
+              <div>
+                <span className="text-slate-500 block text-[10px]">LOẠI CẢNH BÁO</span>
+                <strong className="text-red-400 font-sans uppercase">
+                  {evidenceLightboxAlert.class}
+                </strong>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-[10px]">CONFIDENCE</span>
+                <strong className="text-slate-200">
+                  {(evidenceLightboxAlert.confidence * 100).toFixed(1)}%
+                </strong>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-[10px]">THỜI GIAN GHI NHẬN</span>
+                <span className="text-slate-300">
+                  {formatMonitoringTime(evidenceLightboxAlert.timestamp)}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-500 block text-[10px]">SEQUENCE ID</span>
+                <span className="text-slate-300">#{evidenceLightboxAlert.sequence}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

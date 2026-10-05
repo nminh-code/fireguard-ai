@@ -182,8 +182,12 @@ export const HistoryView: React.FC = () => {
             <tbody className="divide-y divide-slate-100">
               {filteredEvents.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-slate-400">
-                    Không có bản ghi nhật ký phù hợp
+                  <td colSpan={7} className="px-4 py-12 text-center text-slate-400">
+                    <div className="flex flex-col items-center justify-center gap-1">
+                      <History className="h-6 w-6 text-slate-300 mb-1" />
+                      <span className="font-bold text-slate-700">No alert history.</span>
+                      <span className="text-[11px] text-slate-400">Chưa có bản ghi nhật ký cảnh báo nào.</span>
+                    </div>
                   </td>
                 </tr>
               ) : (

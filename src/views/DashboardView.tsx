@@ -1,398 +1,456 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DashboardStats, Camera, Incident } from '../types';
-import { incidentService } from '../services/incidentService';
-import { cameraService } from '../services/cameraService';
-import { realtimeService } from '../services/realtimeService';
-import { soundManager } from '../utils/audioAlert';
-import { CctvPlayer } from '../components/CctvPlayer';
 import {
-  Cctv,
+  ShieldAlert,
   Flame,
-  AlertTriangle,
-  CheckCircle2,
-  ArrowRight,
+  HardHat,
   Radio,
-  Eye,
-  MapPin,
-  Zap,
+  CheckCircle2,
+  AlertTriangle,
+  ArrowRight,
+  Video,
+  Layers,
+  Activity,
+  Server,
+  Clock,
+  ExternalLink,
 } from 'lucide-react';
+import { cameraConnectionService } from '../services/cameraConnectionService';
+import { cameraSessionStore } from '../services/cameraSessionStore';
+import { incidentService } from '../services/incidentService';
+import { realtimeService } from '../services/realtimeService';
+import {
+  getLatestAlert,
+  getAlertHistory,
+  formatMonitoringTime,
+  MonitoringAlert,
+} from '../services/monitoringAlertService';
+import { Incident } from '../types';
 
 export const DashboardView: React.FC = () => {
   const navigate = useNavigate();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [activeIncident, setActiveIncident] = useState<Incident | null>(null);
-  const [featuredCameras, setFeaturedCameras] = useState<Camera[]>([]);
-  const [offlineCameras, setOfflineCameras] = useState<Camera[]>([]);
+  const cameraSession = useSyncExternalStore(
+    cameraSessionStore.subscribe,
+    cameraSessionStore.getSnapshot
+  );
+
+  const [savedCameras, setSavedCameras] = useState(cameraConnectionService.getSavedCameras());
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [recentAlerts, setRecentAlerts] = useState<MonitoringAlert[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAlertApiOnline, setIsAlertApiOnline] = useState(false);
 
-  const fetchDashboardData = async () => {
+  const loadOperationalData = async () => {
     try {
-      const [s, incs, cams] = await Promise.all([
-        incidentService.getDashboardStats(),
-        incidentService.getIncidents(),
-        cameraService.getCameras(),
-      ]);
+      const incList = await incidentService.getIncidents();
+      setIncidents(incList);
+      setSavedCameras(cameraConnectionService.getSavedCameras());
 
-      setStats(s);
-      const active = incs.find((i) => i.status === 'ACTIVE' || i.status === 'RESPONDING');
-      setActiveIncident(active || null);
-
-      // Featured cameras: Active fire camera first, or key warehouse cameras
-      const fireCam = cams.find((c) => c.status === 'FIRE');
-      const otherCams = cams.filter((c) => c.id !== fireCam?.id).slice(0, 3);
-      setFeaturedCameras(fireCam ? [fireCam, ...otherCams] : cams.slice(0, 4));
-
-      // Offline cameras list
-      const off = cams.filter((c) => c.status === 'OFFLINE');
-      setOfflineCameras(off);
-    } catch (err) {
-      console.error('Error loading dashboard:', err);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2000);
+      try {
+        const hist = await getAlertHistory(controller.signal);
+        setRecentAlerts(hist.alerts || []);
+        setIsAlertApiOnline(true);
+      } catch {
+        setIsAlertApiOnline(false);
+      } finally {
+        clearTimeout(timeout);
+      }
+    } catch (e) {
+      console.error(e);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchDashboardData();
+    loadOperationalData();
 
     const unsubGlobal = realtimeService.subscribeToGlobalState(() => {
-      fetchDashboardData();
+      loadOperationalData();
     });
 
     const unsubIncident = realtimeService.subscribeToIncidentEvents(() => {
-      fetchDashboardData();
-    });
-
-    const unsubCamera = realtimeService.subscribeToCameraUpdates(() => {
-      fetchDashboardData();
+      loadOperationalData();
     });
 
     return () => {
       unsubGlobal();
       unsubIncident();
-      unsubCamera();
     };
   }, []);
 
-  if (loading || !stats) {
-    return (
-      <div className="space-y-6 animate-pulse">
-        <div className="h-28 bg-slate-200 rounded-xl" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-28 bg-slate-200 rounded-xl" />
-          ))}
-        </div>
-        <div className="h-96 bg-slate-200 rounded-xl" />
-      </div>
-    );
-  }
+  // Compute actual camera metrics
+  const totalCameras = savedCameras.length + (cameraSession.activeStream && !savedCameras.some(c => c.id === cameraSession.activeStream?.cameraId) ? 1 : 0);
+  const onlineCameras = cameraSession.activeStream?.connected ? 1 : 0;
+  const offlineCameras = Math.max(0, totalCameras - onlineCameras);
+
+  const activeIncidents = incidents.filter(
+    (i) => i.status === 'ACTIVE' || i.status === 'RESPONDING'
+  );
+
+  const isConfigured = totalCameras > 0;
 
   return (
-    <div className="space-y-6" id="dashboard-view">
-      {/* Factory Overview Banner */}
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl md:text-2xl font-black tracking-tight text-slate-900">
-                Nhà máy ABC - Hải Phòng
-              </h1>
-              <span className="bg-slate-100 text-slate-700 text-xs px-2.5 py-0.5 rounded-full font-semibold">
-                KCN Đình Vũ
-              </span>
-            </div>
+    <div className="space-y-6 pb-12" id="dashboard-view">
+      {/* Factory Operational Status Header */}
+      <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 md:text-2xl">
+              Hệ Thống Giám Sát An Toàn Vận Hành (FireVis Industrial)
+            </h1>
           </div>
-
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 rounded-lg bg-slate-50 border border-slate-200 px-3 py-1.5">
-              <span className="text-xs text-slate-500 font-medium">Trạng thái hệ thống:</span>
-              <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
-                SYSTEM OPERATIONAL
-              </span>
-            </div>
-          </div>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Trung tâm chỉ huy & kiểm soát an toàn phòng chống cháy nổ nhà máy
+          </p>
         </div>
 
+        {/* Global Operational Readiness Badge */}
+        <div className="flex items-center gap-2">
+          {activeIncidents.length > 0 ? (
+            <div className="flex items-center gap-2 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs animate-pulse">
+              <Flame className="h-4 w-4" />
+              <span>CÓ {activeIncidents.length} SỰ CỐ HOẠT ĐỘNG</span>
+            </div>
+          ) : isConfigured ? (
+            <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800">
+              <span className="h-2 w-2 rounded-full bg-emerald-600 animate-pulse"></span>
+              <span>HỆ THỐNG VẬN HÀNH BÌNH THƯỜNG</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">
+              <AlertTriangle className="h-4 w-4 text-slate-500" />
+              <span>CHƯA CẤU HÌNH CAMERA</span>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Prominent Incident Banner: Normal vs Active Fire */}
-      {activeIncident ? (
-        <div
-          className="rounded-xl border-2 border-red-600 bg-red-50 p-5 shadow-md animate-fade-in"
-          id="banner-active-incident"
-        >
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="flex items-start gap-3.5">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-red-600 text-white shadow-md">
-                <Flame className="h-7 w-7 fill-white animate-pulse" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-red-600 px-2.5 py-0.5 text-xs font-black text-white uppercase tracking-wider animate-pulse">
-                    🔴 ACTIVE FIRE INCIDENT
-                  </span>
-                  <span className="text-xs font-mono font-bold text-red-800">
-                    Mã sự cố: #{activeIncident.code}
-                  </span>
-                  <span className="text-xs text-red-600 bg-red-100 border border-red-200 px-2 py-0.5 rounded font-bold">
-                    CẤP ĐỘ: {activeIncident.severity}
-                  </span>
-                </div>
-
-                <div className="mt-2 text-slate-900">
-                  <span className="text-base font-bold text-red-950">
-                    {activeIncident.location}
-                  </span>
-                  <span className="text-slate-400 mx-2">•</span>
-                  <span className="text-sm font-semibold text-slate-700">
-                    Camera: {activeIncident.cameraCode}
-                  </span>
-                  <span className="text-slate-400 mx-2">•</span>
-                  <span className="text-sm font-mono text-slate-600">
-                    Phát hiện lúc: {activeIncident.detectedAt}
-                  </span>
-                  <span className="text-slate-400 mx-2">•</span>
-                  <span className="text-sm font-bold text-red-700">
-                    AI Xác nhận: {activeIncident.fireConfidence}%
-                  </span>
-                </div>
-
-                <p className="text-xs text-red-900 mt-1">
-                  Đám cháy được hệ thống AI Favis phát hiện tự động. Yêu cầu bộ phận an ninh và
-                  đội PCCC cơ sở kiểm tra hiện trường ngay lập tức!
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={() => navigate(`/incidents/${activeIncident.id}`)}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-lg bg-red-600 hover:bg-red-700 active:scale-98 text-white px-5 py-3 text-sm font-bold shadow-md transition-all cursor-pointer"
-                id="btn-view-incident-banner"
-              >
-                <span>XEM CHI TIẾT SỰ CỐ</span>
-                <ArrowRight className="h-4 w-4" />
-              </button>
-            </div>
+      {/* When NO camera is configured: Show clear industrial Empty State CTA */}
+      {!isConfigured ? (
+        <div className="rounded-xl border-2 border-dashed border-slate-300 bg-white p-10 text-center shadow-2xs">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
+            <Video className="h-7 w-7" />
+          </div>
+          <h2 className="mt-4 text-base font-bold text-slate-900 uppercase tracking-wide">
+            Hệ Thống Chưa Được Cấu Hình (System Not Configured)
+          </h2>
+          <p className="mt-1 text-sm text-slate-500 max-w-md mx-auto">
+            Chưa có camera nào được kết nối với hệ thống giám sát. Hãy thêm cấu hình và kiểm tra kết nối camera để bắt đầu theo dõi an toàn.
+          </p>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <button
+              onClick={() => navigate('/camera-test')}
+              className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-red-700 transition-colors cursor-pointer"
+            >
+              <Video className="h-4 w-4" />
+              <span>ĐẾN TRANG CAMERA TEST</span>
+            </button>
+            <button
+              onClick={() => navigate('/monitoring')}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+              <span>MỞ MÀN HÌNH GIÁM SÁT</span>
+            </button>
           </div>
         </div>
       ) : (
-        <div
-          className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 shadow-2xs flex items-center justify-between"
-          id="banner-system-normal"
-        >
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-600 text-white">
-              <CheckCircle2 className="h-6 w-6" />
+        /* Real Metrics Grid */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Total Cameras */}
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                Tổng Số Camera
+              </span>
+              <Video className="h-4 w-4 text-slate-400" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-sm text-emerald-900">🟢 SYSTEM NORMAL</span>
-                <span className="text-xs text-emerald-700 font-medium">
-                  Không phát hiện sự cố cháy nào trong toàn bộ 6 phân khu nhà máy
-                </span>
-              </div>
-              <p className="text-xs text-emerald-800/80 mt-0.5">
-                AI Vision đang giám sát liên tục theo thời gian thực (chu kỳ quét 1.2s/luồng)
-              </p>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl font-black text-slate-900 font-mono">
+                {totalCameras}
+              </span>
+              <span className="text-xs text-slate-500">thiết bị</span>
             </div>
           </div>
 
-          <button
-            onClick={() => {
-              soundManager.playFireAlarm();
-              incidentService.simulateFireEvent();
-            }}
-            className="hidden sm:flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 bg-white border border-emerald-200 px-3 py-1.5 rounded-lg shadow-2xs cursor-pointer font-medium"
-          >
-            <Zap className="h-3.5 w-3.5 text-amber-500" />
-            <span>Thử nghiệm báo cháy</span>
-          </button>
+          {/* Online Cameras */}
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                Camera Trực Tuyến
+              </span>
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl font-black text-emerald-600 font-mono">
+                {onlineCameras}
+              </span>
+              <span className="text-xs text-slate-500">đang live</span>
+            </div>
+          </div>
+
+          {/* Offline Cameras */}
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                Camera Ngoại Tuyến
+              </span>
+              <span className="h-2 w-2 rounded-full bg-slate-400" />
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl font-black text-slate-700 font-mono">
+                {offlineCameras}
+              </span>
+              <span className="text-xs text-slate-500">chưa kết nối stream</span>
+            </div>
+          </div>
+
+          {/* Active Incidents */}
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                Sự Cố Hoạt Động
+              </span>
+              <ShieldAlert
+                className={`h-4 w-4 ${
+                  activeIncidents.length > 0 ? 'text-red-600' : 'text-slate-400'
+                }`}
+              />
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span
+                className={`text-2xl font-black font-mono ${
+                  activeIncidents.length > 0 ? 'text-red-600' : 'text-slate-900'
+                }`}
+              >
+                {activeIncidents.length}
+              </span>
+              <span className="text-xs text-slate-500">sự cố cần xử lý</span>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* Total Cameras */}
-        <div
-          onClick={() => navigate('/cameras')}
-          className="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs hover:border-slate-300 transition-colors cursor-pointer"
-        >
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-xs font-semibold uppercase tracking-wider">Total Cameras</span>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
-              <Cctv className="h-4 w-4" />
+      {/* Main Two-Column Dashboard Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left Column (7 cols): AI Modules Status & Connected Cameras */}
+        <div className="lg:col-span-7 space-y-6">
+          {/* AI Modules Status (Strictly 2 Modules: Fire & PPE) */}
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <div className="flex items-center gap-2">
+                <Activity className="h-4 w-4 text-slate-700" />
+                <h2 className="text-sm font-bold uppercase tracking-wide text-slate-900">
+                  Trạng Thái Các Module AI
+                </h2>
+              </div>
+              <span className="text-xs text-slate-500">2 Modules chuẩn</span>
             </div>
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-black text-slate-900">{stats.totalCameras}</span>
-            <span className="text-xs text-slate-500 font-medium">Camera CCTV/IP</span>
-          </div>
-          <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
-            <span>Bảo phủ 6 khu vực nhà máy</span>
-          </div>
-        </div>
 
-        {/* Cameras Online */}
-        <div
-          onClick={() => navigate('/cameras')}
-          className="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs hover:border-slate-300 transition-colors cursor-pointer"
-        >
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-xs font-semibold uppercase tracking-wider">Cameras Online</span>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
-              <Radio className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-black text-emerald-600">{stats.camerasOnline}</span>
-            <span className="text-xs text-slate-500 font-medium">/ {stats.totalCameras} luồng</span>
-          </div>
-          <div className="mt-2 flex items-center justify-between text-xs">
-            <span className="text-slate-500">Tỷ lệ trực tuyến</span>
-            <span className="font-semibold text-slate-700">
-              {Math.round((stats.camerasOnline / stats.totalCameras) * 100)}%
-            </span>
-          </div>
-        </div>
+            <div className="space-y-3">
+              {/* Module 1: Fire Detection */}
+              <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50/70 p-3.5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-100 text-red-600">
+                    <Flame className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-xs text-slate-900 block">
+                      🔥 FIRE DETECTION (Phát hiện khói & lửa)
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      Mô hình YOLOv8 Fire/Smoke • Phân tích thời gian thực
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                    ACTIVE
+                  </span>
+                </div>
+              </div>
 
-        {/* Active Incidents */}
-        <div
-          onClick={() => navigate('/incidents')}
-          className={`rounded-xl border p-5 shadow-2xs transition-colors cursor-pointer ${
-            stats.activeIncidents > 0
-              ? 'border-red-300 bg-red-50/40 hover:border-red-400'
-              : 'border-slate-200 bg-white hover:border-slate-300'
-          }`}
-        >
-          <div className="flex items-center justify-between text-slate-500">
-            <span className="text-xs font-semibold uppercase tracking-wider">Active Incidents</span>
-            <div
-              className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-                stats.activeIncidents > 0
-                  ? 'bg-red-600 text-white animate-pulse'
-                  : 'bg-slate-100 text-slate-700'
-              }`}
-            >
-              <Flame className="h-4 w-4" />
+              {/* Module 2: PPE Detection */}
+              <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50/70 p-3.5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
+                    <HardHat className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-xs text-slate-900 block">
+                      🦺 PPE DETECTION (Giám sát đồ bảo hộ)
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      Phát hiện Mũ bảo hộ & Áo phản quang công nhân
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-200 px-2.5 py-0.5 text-[10px] font-semibold text-slate-700">
+                    STANDBY
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span
-              className={`text-3xl font-black ${
-                stats.activeIncidents > 0 ? 'text-red-600' : 'text-slate-900'
-              }`}
-            >
-              {stats.activeIncidents}
-            </span>
-            <span className="text-xs text-slate-500 font-medium">Sự cố cháy</span>
-          </div>
-          <div className="mt-2 flex items-center gap-1.5 text-xs">
-            {stats.activeIncidents > 0 ? (
-              <span className="font-bold text-red-700">Cần xử lý khẩn cấp →</span>
+
+          {/* Connected Cameras Table / Overview */}
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+              <h2 className="text-sm font-bold uppercase tracking-wide text-slate-900">
+                Danh Sách Camera Đã Lưu ({savedCameras.length})
+              </h2>
+              <button
+                onClick={() => navigate('/monitoring')}
+                className="text-xs font-bold text-slate-700 hover:text-red-600 flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                <span>Mở giám sát</span>
+                <ArrowRight className="h-3 w-3" />
+              </button>
+            </div>
+
+            {savedCameras.length === 0 ? (
+              <p className="text-xs text-slate-500 py-4 text-center">
+                Chưa có camera nào trong cấu hình. Hãy vào Camera Test để thêm camera.
+              </p>
             ) : (
-              <span className="text-emerald-700 font-medium">Không có rủi ro</span>
+              <div className="divide-y divide-slate-100">
+                {savedCameras.map((cam) => {
+                  const isLive = cameraSession.activeStream?.cameraId === cam.id;
+                  return (
+                    <div
+                      key={cam.id}
+                      className="flex items-center justify-between py-2.5 text-xs"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Video className="h-4 w-4 text-slate-400" />
+                        <div>
+                          <span className="font-bold text-slate-900 block">{cam.name}</span>
+                          <span className="text-[11px] text-slate-500 font-mono">
+                            {cam.brand} • {cam.ip}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div>
+                        {isLive ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                            LIVE
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600 font-medium">
+                            CONFIGURED
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
 
-      </div>
-
-      {/* Live CCTV Streams Section (Full Width) */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Eye className="h-4 w-4 text-slate-700" />
-            <h2 className="text-base font-bold text-slate-900">Luồng Giám Sát Trọng Điểm (Live CCTV Feeds)</h2>
-          </div>
-          <button
-            onClick={() => navigate('/cameras')}
-            className="text-xs font-semibold text-slate-700 hover:text-slate-900 flex items-center gap-1 cursor-pointer"
-          >
-            <span>Xem tất cả 24 camera</span>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {featuredCameras.map((cam) => (
-            <div
-              key={cam.id}
-              onClick={() => navigate(`/cameras`)}
-              className="group relative rounded-xl border border-slate-200 bg-white p-3 shadow-2xs hover:border-slate-400 hover:shadow-sm transition-all cursor-pointer"
-            >
-              <CctvPlayer camera={cam} className="aspect-video min-h-[240px] sm:min-h-[280px] w-full" />
-              <div className="mt-3 px-1 pb-0.5 flex items-center justify-between text-xs sm:text-sm">
-                <div>
-                  <span className="font-bold text-slate-900">{cam.code}:</span>{' '}
-                  <span className="text-slate-600 font-medium">{cam.name}</span>
-                </div>
-                <span
-                  className={`font-semibold text-xs px-2.5 py-1 rounded ${
-                    cam.status === 'FIRE'
-                      ? 'bg-red-100 text-red-700 font-bold animate-pulse'
-                      : cam.status === 'OFFLINE'
-                      ? 'bg-slate-100 text-slate-500'
-                      : 'bg-emerald-50 text-emerald-700'
-                  }`}
-                >
-                  {cam.status === 'FIRE' ? '🔥 CHÁY' : cam.status}
-                </span>
+        {/* Right Column (5 cols): Active Incidents & Recent AI Alerts */}
+        <div className="lg:col-span-5 space-y-6">
+          {/* Active Incidents Container */}
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="h-4 w-4 text-red-600" />
+                <h2 className="text-sm font-bold uppercase tracking-wide text-slate-900">
+                  Sự Cố Đang Hoạt Động
+                </h2>
               </div>
+              <button
+                onClick={() => navigate('/incidents')}
+                className="text-xs font-bold text-red-600 hover:underline cursor-pointer"
+              >
+                Xem tất cả
+              </button>
             </div>
-          ))}
-        </div>
 
-        {/* Bottom row: Offline alerts & Site map link */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-          {/* Quick link to Site Map */}
-          <div
-            onClick={() => navigate('/map')}
-            className={`rounded-xl border border-slate-200 bg-white p-4 shadow-2xs flex items-center justify-between hover:bg-slate-50/80 transition-colors cursor-pointer ${
-              offlineCameras.length === 0 ? 'md:col-span-2' : ''
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-900 text-white">
-                <MapPin className="h-5 w-5" />
-              </div>
-              <div>
-                <h4 className="text-sm font-bold text-slate-900">Sơ Đồ Bố Trí Nhà Máy (Site Map 2D)</h4>
-                <p className="text-xs text-slate-500">
-                  Xem trực quan vị trí 24 camera và cảnh báo cháy trên mặt bằng sản xuất Hải Phòng
+            {activeIncidents.length === 0 ? (
+              <div className="rounded-lg bg-slate-50 p-5 text-center">
+                <CheckCircle2 className="h-6 w-6 text-emerald-600 mx-auto" />
+                <h3 className="mt-2 text-xs font-bold text-slate-900">Không có sự cố nào</h3>
+                <p className="mt-0.5 text-[11px] text-slate-500">
+                  Nhà máy đang trong điều kiện an toàn, không có mã sự cố mở.
                 </p>
               </div>
-            </div>
-            <span className="text-xs font-semibold text-slate-900 flex items-center gap-1 shrink-0 ml-3">
-              Mở sơ đồ →
-            </span>
+            ) : (
+              <div className="space-y-3">
+                {activeIncidents.map((inc) => (
+                  <div
+                    key={inc.id}
+                    onClick={() => navigate(`/incidents/${inc.id}`)}
+                    className="rounded-lg border border-red-200 bg-red-50/60 p-3 hover:bg-red-50 transition-colors cursor-pointer space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-red-900">#{inc.code}</span>
+                      <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white uppercase">
+                        {inc.status}
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-700">
+                      <strong>{inc.location}</strong> ({inc.cameraCode})
+                    </div>
+                    <div className="flex justify-between text-[11px] text-slate-500 font-mono">
+                      <span>Độ tin cậy: {inc.fireConfidence}%</span>
+                      <span>Lúc: {inc.detectedAt}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Quick Offline Alert Card if cameras offline */}
-          {offlineCameras.length > 0 && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
-              <div className="flex items-start gap-2.5">
-                <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="text-xs font-bold text-amber-900">
-                    Cảnh Báo: {offlineCameras.length} Camera Mất Tín Hiệu
-                  </h4>
-                  <p className="text-xs text-amber-800/90 mt-0.5">
-                    {offlineCameras.map((c) => `${c.code} - ${c.name}`).join(', ')}
-                  </p>
-                  <button
-                    onClick={() => navigate('/cameras?filter=offline')}
-                    className="mt-2 text-xs font-bold text-amber-900 underline hover:text-amber-950 cursor-pointer"
-                  >
-                    Kiểm tra tình trạng camera ngay →
-                  </button>
-                </div>
-              </div>
+          {/* Recent AI Detections List */}
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-2xs">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+              <h2 className="text-sm font-bold uppercase tracking-wide text-slate-900">
+                Cảnh Báo Gần Nhất (Recent Alerts)
+              </h2>
+              <span className="text-[11px] text-slate-500 font-mono">
+                {isAlertApiOnline ? '🟢 API Online' : '⚪ Standby'}
+              </span>
             </div>
-          )}
+
+            {recentAlerts.length === 0 ? (
+              <p className="text-xs text-slate-500 py-4 text-center">
+                Chưa có cảnh báo nào được ghi nhận gần đây.
+              </p>
+            ) : (
+              <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
+                {recentAlerts.slice(0, 5).map((alt) => (
+                  <div key={alt.id} className="py-2.5 text-xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-[10px] font-bold text-white uppercase ${
+                          alt.class === 'fire' ? 'bg-red-600' : 'bg-amber-600'
+                        }`}
+                      >
+                        {alt.class}
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-mono">
+                        {formatMonitoringTime(alt.timestamp)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-slate-700">
+                      <span>Camera: {alt.cameraId}</span>
+                      <span className="font-mono font-bold">
+                        {(alt.confidence * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

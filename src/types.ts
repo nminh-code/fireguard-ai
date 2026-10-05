@@ -191,3 +191,24 @@ export interface CameraConnectionResult {
   webrtcUrl?: string;
   details?: Record<string, unknown>;
 }
+
+export type AIModuleType = 'FIRE' | 'PPE';
+
+export type DetectionType = 'FIRE' | 'SMOKE' | 'NO_HELMET' | 'NO_VEST' | 'PPE_VIOLATION';
+
+export interface GenericDetectionEvent {
+  id: string;
+  module: AIModuleType;
+  detectionType: DetectionType;
+  cameraId: string;
+  cameraName?: string;
+  location?: string;
+  confidence: number;
+  severity: IncidentSeverity;
+  timestamp: string;
+  box?: [number, number, number, number];
+  boxFormat?: 'xyxy';
+  evidenceUrl?: string | null;
+  incidentId?: string;
+}
+

@@ -198,23 +198,30 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, on
               </div>
 
               <div className="max-h-72 overflow-y-auto space-y-2 text-left">
-                {notifications.slice(0, 4).map((n) => (
-                  <div
-                    key={n.id}
-                    onClick={() => {
-                      notificationService.markAsRead(n.id);
-                      setShowNotifMenu(false);
-                      navigate(n.incidentId ? `/incidents/${n.incidentId}` : '/notifications');
-                    }}
-                    className="p-2 rounded-lg border border-slate-100 hover:bg-slate-50 cursor-pointer"
-                  >
-                    <div className="flex justify-between text-xs font-bold text-slate-900">
-                      <span>{n.title}</span>
-                      <span className="text-[10px] text-slate-400">{n.timestamp}</span>
-                    </div>
-                    <p className="text-xs text-slate-600 mt-0.5 line-clamp-2">{n.message}</p>
+                {notifications.length === 0 ? (
+                  <div className="py-6 text-center text-xs text-slate-400">
+                    <p className="font-semibold text-slate-600">No new notifications.</p>
+                    <p className="text-[11px] mt-0.5">Không có thông báo mới nào.</p>
                   </div>
-                ))}
+                ) : (
+                  notifications.slice(0, 5).map((n) => (
+                    <div
+                      key={n.id}
+                      onClick={() => {
+                        notificationService.markAsRead(n.id);
+                        setShowNotifMenu(false);
+                        navigate(n.incidentId ? `/incidents/${n.incidentId}` : '/notifications');
+                      }}
+                      className="p-2.5 rounded-lg border border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"
+                    >
+                      <div className="flex justify-between text-xs font-bold text-slate-900">
+                        <span>{n.title}</span>
+                        <span className="text-[10px] text-slate-400 font-mono">{n.timestamp}</span>
+                      </div>
+                      <p className="text-xs text-slate-600 mt-0.5 line-clamp-2">{n.message}</p>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}

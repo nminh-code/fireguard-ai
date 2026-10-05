@@ -157,10 +157,10 @@ export const IncidentsView: React.FC = () => {
         </div>
       ) : filtered.length === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-white p-12 text-center">
-          <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-500" />
-          <h3 className="mt-3 text-sm font-bold text-slate-800">Không có sự cố nào phù hợp</h3>
+          <CheckCircle2 className="mx-auto h-12 w-12 text-slate-400" />
+          <h3 className="mt-3 text-sm font-bold text-slate-800">No incidents recorded.</h3>
           <p className="mt-1 text-xs text-slate-500">
-            Hệ thống đang hoạt động an toàn hoặc không có mục nào theo bộ lọc của bạn
+            Hệ thống an toàn, chưa ghi nhận sự cố cháy hoặc vi phạm an toàn nào cần xử lý.
           </p>
         </div>
       ) : (

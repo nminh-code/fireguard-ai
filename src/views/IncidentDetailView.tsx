@@ -3,10 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Incident, Camera } from '../types';
 import { incidentService } from '../services/incidentService';
 import { cameraService } from '../services/cameraService';
+import { cameraSessionStore } from '../services/cameraSessionStore';
 import { authService } from '../services/authService';
 import { realtimeService } from '../services/realtimeService';
 import { soundManager } from '../utils/audioAlert';
 import { CctvPlayer } from '../components/CctvPlayer';
+import { HlsVideoPlayer } from '../components/HlsVideoPlayer';
 import {
   Flame,
   ArrowLeft,
@@ -316,7 +318,22 @@ export const IncidentDetailView: React.FC = () => {
             </div>
 
             {/* Video Player */}
-            {camera ? (
+            {cameraSessionStore.getSnapshot().activeStream?.connected ? (
+              <div className="aspect-video w-full rounded-lg overflow-hidden bg-black">
+                <HlsVideoPlayer
+                  src={cameraSessionStore.getSnapshot().activeStream!.playbackUrl}
+                  webrtcUrl={cameraSessionStore.getSnapshot().activeStream!.webrtcUrl}
+                />
+              </div>
+            ) : incident.snapshotUrl ? (
+              <div className="aspect-video w-full rounded-lg overflow-hidden bg-slate-950 flex items-center justify-center">
+                <img
+                  src={incident.snapshotUrl}
+                  alt="Snapshot Bằng Chứng Sự Cố"
+                  className="max-h-full max-w-full object-contain"
+                />
+              </div>
+            ) : camera ? (
               <CctvPlayer camera={camera} showAiOverlay={true} className="aspect-video w-full" />
             ) : (
               <div className="aspect-video w-full bg-slate-900 rounded-lg flex items-center justify-center text-slate-500">
