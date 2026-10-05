@@ -10,7 +10,6 @@ import {
   Menu,
   Building2,
   UserCheck,
-  Zap,
   CheckCircle2,
   LogOut,
 } from 'lucide-react';
@@ -25,10 +24,6 @@ interface TopbarProps {
 export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, onRoleChange, onLogout }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const isCameraTestOrMonitoring =
-    location.pathname === '/camera-test' ||
-    location.pathname === '/camera-connect' ||
-    location.pathname === '/monitoring';
 
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -43,7 +38,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, on
         .join('')
         .substring(0, 2)
         .toUpperCase()
-    : 'US';
+    : 'VD';
 
   const loadData = async () => {
     const s = await incidentService.getDashboardStats();
@@ -80,51 +75,50 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, on
 
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200 bg-white px-4 md:px-6 shadow-2xs">
-      {/* Left side: Hamburger button + Factory Header info */}
+      {/* Left side: Hamburger button + FireVis Control Center Header info */}
       <div className="flex items-center gap-3 md:gap-4">
         <button
           onClick={onToggleSidebar}
-          className="rounded-md p-2 text-slate-600 hover:bg-slate-100 lg:hidden focus:outline-hidden"
+          className="rounded-md p-2 text-slate-600 hover:bg-slate-100 lg:hidden focus:outline-hidden cursor-pointer"
           title="Mở menu"
           id="btn-sidebar-toggle"
         >
           <Menu className="h-5 w-5" />
         </button>
 
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700 border border-slate-200">
-            <Building2 className="h-5 w-5 text-slate-800" />
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-50 border border-slate-200/80 text-slate-800 shadow-2xs">
+            <Building2 className="h-5 w-5" />
           </div>
           <div>
-            {!isCameraTestOrMonitoring && (
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-sm md:text-base text-slate-900 leading-tight">
-                  Nhà máy ABC - Hải Phòng
-                </span>
-                <span className="hidden md:inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
-                  KCN Đình Vũ
-                </span>
-              </div>
-            )}
-            <div className="flex items-center gap-1.5 text-xs">
-              {hasActiveFire ? (
-                <span className="flex items-center gap-1 font-bold text-red-600 animate-pulse">
-                  <span className="h-2 w-2 rounded-full bg-red-600"></span>
-                  🔴 SỰ CỐ CHÁY ĐANG HOẠT ĐỘNG ({stats?.activeIncidents})
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 text-emerald-700 font-medium">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
-                  🟢 HỆ THỐNG GIÁM SÁT HOẠT ĐỘNG BÌNH THƯỜNG
-                </span>
-              )}
-            </div>
+            <h1 className="text-sm sm:text-base font-bold text-slate-900 leading-tight">
+              FireVis Control Center
+            </h1>
+            <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5 hidden sm:block">
+              Giám sát an toàn • Phát hiện sớm • Ứng phó kịp thời
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Right side: Demo Event Simulation + Bell Notifications + User Profile */}
+      {/* Right side: System Status Pill + Resolve Button + Bell Notifications + User Profile */}
       <div className="flex items-center gap-3">
+        {/* System Status Pill */}
+        <div
+          className={`hidden sm:inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold tracking-wide ${
+            hasActiveFire
+              ? 'bg-red-50 text-red-700 border-red-200'
+              : 'bg-emerald-50/80 text-emerald-700 border-emerald-200'
+          }`}
+        >
+          <span
+            className={`h-2 w-2 rounded-full ${
+              hasActiveFire ? 'bg-red-600 animate-pulse' : 'bg-emerald-500'
+            }`}
+          />
+          <span>{hasActiveFire ? 'CẦN XỬ LÝ SỰ CỐ' : 'HỆ THỐNG HOẠT ĐỘNG TỐT'}</span>
+        </div>
+
         {/* Resolve button when active fire exists */}
         {hasActiveFire && (
           <button
@@ -210,7 +204,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, on
             <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-800 text-white font-bold text-xs">
               {initials}
             </div>
-            <div className="text-left pr-1">
+            <div className="text-left pr-1 hidden sm:block">
               <div className="font-bold text-slate-900 leading-tight">{currentUser.name}</div>
               <div className="text-[10px] text-slate-500 leading-none">{currentUser.role}</div>
             </div>
