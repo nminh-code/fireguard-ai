@@ -8,7 +8,6 @@ import {
   Flame,
   Map,
   History,
-  Bell,
   Settings,
   Users,
   X,
@@ -45,13 +44,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     { name: 'Site Map', path: '/map', icon: Map },
     { name: 'History', path: '/history', icon: History },
-    {
-      name: 'Notifications',
-      path: '/notifications',
-      icon: Bell,
-      badge: 2,
-      badgeColor: 'bg-red-600 text-white font-bold',
-    },
     { name: 'Settings', path: '/settings', icon: Settings },
   ];
 
