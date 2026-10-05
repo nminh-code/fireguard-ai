@@ -17,3 +17,7 @@ streams:
     - rtsp://admin:Diem!123@192.168.1.8:554/onvif2
   camera-1c3dd287-3bde-47c1-854d-5e2b6a86171e:
     - rtsp://admin:Diem!123@192.168.1.8:554/onvif2
+  camera-34164811-e401-4e25-aeeb-f493f969e79e:
+    - rtsp://admin:Diem!123@192.168.1.8:554/onvif2
+  camera-7bb28c2d-3070-4734-b24f-827cd8237eca:
+    - rtsp://admin:Diem!123@192.168.1.8:554/onvif2
