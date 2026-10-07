@@ -81,7 +81,7 @@ export const DashboardView: React.FC = () => {
     };
   }, []);
 
-  // Compute unified camera list
+  // Compute unified camera list (strictly only live connected cameras on Dashboard)
   const cameraList = (() => {
     const list: Array<{
       id: string;
@@ -104,22 +104,11 @@ export const DashboardView: React.FC = () => {
       });
     }
 
-    savedCameras.forEach((cam) => {
-      if (!list.some((c) => c.id === cam.id)) {
-        list.push({
-          id: cam.id,
-          name: cam.name,
-          location: `${cam.brand || 'RTSP'} • ${cam.ip || '192.168.1.8'}`,
-          isLive: false,
-        });
-      }
-    });
-
     return list;
   })();
 
-  const totalCameras = cameraList.length;
-  const onlineCameras = cameraList.filter((c) => c.isLive).length;
+  const onlineCameras = cameraList.length;
+  const totalConfiguredCameras = savedCameras.length;
   const activeIncidents = incidents.filter(
     (i) => i.status === 'ACTIVE' || i.status === 'RESPONDING'
   );
@@ -139,11 +128,11 @@ export const DashboardView: React.FC = () => {
               CAMERA
             </div>
             <div className="mt-0.5 text-2xl font-black text-slate-900">
-              {totalCameras}
+              {onlineCameras}
             </div>
             <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
-              <span className={`h-1.5 w-1.5 rounded-full ${totalCameras > 0 ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-              <span>{totalCameras > 0 ? 'đã kết nối' : 'chưa kết nối'}</span>
+              <span className={`h-1.5 w-1.5 rounded-full ${onlineCameras > 0 ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+              <span>{onlineCameras > 0 ? 'đang phát trực tiếp' : 'chưa kết nối'}</span>
             </div>
           </div>
         </div>
@@ -158,7 +147,7 @@ export const DashboardView: React.FC = () => {
               ĐANG ONLINE
             </div>
             <div className="mt-0.5 text-2xl font-black text-slate-900">
-              {onlineCameras} <span className="text-lg font-bold text-slate-400">/ {totalCameras}</span>
+              {onlineCameras} <span className="text-lg font-bold text-slate-400">/ {totalConfiguredCameras || onlineCameras}</span>
             </div>
             <div className="text-xs text-slate-500 mt-0.5">
               camera
@@ -203,10 +192,10 @@ export const DashboardView: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. MAIN DASHBOARD CONTENT (2 COLUMNS: LEFT 60% / RIGHT 40%) */}
+      {/* 2. MAIN DASHBOARD CONTENT (2 COLUMNS: LEFT 67% CAMERA / RIGHT 33% INCIDENTS & ALERTS) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* LEFT COLUMN: Camera giám sát + Trạng thái module AI */}
-        <div className="lg:col-span-7 space-y-4">
+        {/* LEFT COLUMN: Camera giám sát + Trạng thái module AI (Chiếm 8/12 = 67% màn hình) */}
+        <div className="lg:col-span-8 space-y-4">
           {/* Card: Camera giám sát */}
           <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3.5">
@@ -250,7 +239,7 @@ export const DashboardView: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                <div className={`grid grid-cols-1 ${cameraList.length > 1 ? 'md:grid-cols-2' : ''} gap-3.5`}>
                   {cameraList.map((cam) => {
                     const isAlert = primaryIncident?.cameraId === cam.id;
 
@@ -422,8 +411,8 @@ export const DashboardView: React.FC = () => {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Sự cố đang hoạt động + Cảnh báo gần nhất */}
-        <div className="lg:col-span-5 space-y-4">
+        {/* RIGHT COLUMN: Sự cố đang hoạt động + Cảnh báo gần nhất (Chiếm 4/12 = 33% màn hình) */}
+        <div className="lg:col-span-4 space-y-4">
           {/* Card: Sự cố đang hoạt động */}
           <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3.5">

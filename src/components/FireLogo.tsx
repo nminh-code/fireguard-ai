@@ -164,7 +164,7 @@ export const FireLogo: React.FC<FireLogoProps> = ({
 
       {/* Typography for 'full' variant */}
       {variant === 'full' && (
-        <div className="flex flex-col text-left">
+        <div className="flex flex-col text-left whitespace-nowrap">
           <div className="flex items-baseline gap-1 leading-none">
             <span className={`font-black tracking-tight text-lg ${textColor}`}>
               FAVIS
@@ -173,7 +173,7 @@ export const FireLogo: React.FC<FireLogoProps> = ({
               AI
             </span>
           </div>
-          <span className="text-[9.5px] font-bold tracking-[0.16em] text-slate-400 uppercase leading-none mt-1">
+          <span className="text-[9px] font-bold tracking-[0.12em] text-slate-400 uppercase leading-none mt-1 whitespace-nowrap">
             AI VISION & MONITORING
           </span>
         </div>

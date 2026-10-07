@@ -189,7 +189,7 @@ export const ManagementView: React.FC = () => {
             }`}
         >
           <ShieldCheck className="h-3.5 w-3.5" />
-          <span>Ma Trận Quyền Hạn (RBAC)</span>
+          <span> Phân Quyền Vận Hành (RBAC)</span>
         </button>
       </div>
 
@@ -322,12 +322,6 @@ export const ManagementView: React.FC = () => {
       {activeTab === 'modules' && (
         <div className="space-y-4">
           <div>
-            <h2 className="text-sm font-bold uppercase tracking-wide text-slate-900">
-              Quản Trị Các Module AI Vision (2 Modules Chuẩn)
-            </h2>
-            <p className="text-xs text-slate-500">
-              Kiểm soát trạng thái phân tích, ngưỡng độ tin cậy và mô hình AI cho camera thật
-            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -469,9 +463,6 @@ export const ManagementView: React.FC = () => {
       {activeTab === 'roles' && (
         <div className="space-y-4">
           <div>
-            <h2 className="text-sm font-bold uppercase tracking-wide text-slate-900">
-              Ma Trận Phân Quyền Vận Hành (Role-Based Access Control)
-            </h2>
             <p className="text-xs text-slate-500">
               Quy định quyền hạn xem video, xử lý sự cố và cấu hình camera giữa các cấp bậc
             </p>

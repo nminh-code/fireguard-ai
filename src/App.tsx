@@ -26,6 +26,7 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(authService.isLoggedIn());
   const [currentUser, setCurrentUser] = useState<User>(authService.getCurrentUser());
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [activeIncidentsCount, setActiveIncidentsCount] = useState(0);
 
   const refreshCounts = async () => {
@@ -79,10 +80,12 @@ export default function App() {
   return (
     <BrowserRouter>
       <div className="flex h-screen w-screen overflow-hidden bg-slate-100 font-sans text-slate-900 antialiased selection:bg-red-500 selection:text-white">
-        {/* Responsive Sidebar */}
+        {/* Responsive Sidebar with Collapse/Expand */}
         <Sidebar
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
           userRole={currentUser.role}
           activeIncidentsCount={activeIncidentsCount}
         />
@@ -91,7 +94,13 @@ export default function App() {
         <div className="flex flex-1 flex-col overflow-hidden min-w-0">
           {/* Top Navigation Bar */}
           <Topbar
-            onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
+            onToggleSidebar={() => {
+              if (window.innerWidth >= 1024) {
+                setIsSidebarCollapsed((prev) => !prev);
+              } else {
+                setIsSidebarOpen((prev) => !prev);
+              }
+            }}
             currentUser={currentUser}
             onRoleChange={handleRoleChange}
             onLogout={handleLogout}
