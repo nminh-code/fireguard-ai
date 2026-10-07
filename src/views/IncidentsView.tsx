@@ -74,7 +74,6 @@ export const IncidentsView: React.FC = () => {
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Sự cố chỉ được tạo khi backend nhận event FIRE_CONFIRMED từ hệ thống AI Vision
           </p>
         </div>
       </div>
@@ -100,23 +99,22 @@ export const IncidentsView: React.FC = () => {
                 <button
                   key={st}
                   onClick={() => setStatusFilter(st)}
-                  className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
-                    statusFilter === st
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-colors cursor-pointer ${statusFilter === st
                       ? st === 'ACTIVE'
                         ? 'bg-red-600 text-white shadow-xs'
                         : 'bg-slate-900 text-white shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                    }`}
                 >
                   {st === 'ALL'
                     ? 'Tất cả'
                     : st === 'ACTIVE'
-                    ? 'Khẩn cấp'
-                    : st === 'RESPONDING'
-                    ? 'Đang xử lý'
-                    : st === 'RESOLVED'
-                    ? 'Đã xử lý'
-                    : 'Báo động giả'}
+                      ? 'Khẩn cấp'
+                      : st === 'RESPONDING'
+                        ? 'Đang xử lý'
+                        : st === 'RESOLVED'
+                          ? 'Đã xử lý'
+                          : 'Báo động giả'}
                 </button>
               ))}
             </div>
@@ -158,26 +156,24 @@ export const IncidentsView: React.FC = () => {
             <div
               key={inc.id}
               onClick={() => navigate(`/incidents/${inc.id}`)}
-              className={`group flex flex-col md:flex-row md:items-center justify-between p-4 rounded-xl border bg-white shadow-2xs hover:shadow-md transition-all cursor-pointer gap-4 ${
-                inc.status === 'ACTIVE'
+              className={`group flex flex-col md:flex-row md:items-center justify-between p-4 rounded-xl border bg-white shadow-2xs hover:shadow-md transition-all cursor-pointer gap-4 ${inc.status === 'ACTIVE'
                   ? 'border-red-400 bg-red-50/40 hover:bg-red-50/80 ring-1 ring-red-500/20'
                   : inc.status === 'RESPONDING'
-                  ? 'border-amber-300 bg-amber-50/40 hover:bg-amber-50/80'
-                  : 'border-slate-200 hover:border-slate-400'
-              }`}
+                    ? 'border-amber-300 bg-amber-50/40 hover:bg-amber-50/80'
+                    : 'border-slate-200 hover:border-slate-400'
+                }`}
             >
               {/* Left Details */}
               <div className="flex items-start gap-3.5">
                 <div
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-xs ${
-                    inc.status === 'ACTIVE'
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-xs ${inc.status === 'ACTIVE'
                       ? 'bg-red-600 animate-pulse'
                       : inc.status === 'RESPONDING'
-                      ? 'bg-amber-600'
-                      : inc.status === 'RESOLVED'
-                      ? 'bg-emerald-600'
-                      : 'bg-slate-600'
-                  }`}
+                        ? 'bg-amber-600'
+                        : inc.status === 'RESOLVED'
+                          ? 'bg-emerald-600'
+                          : 'bg-slate-600'
+                    }`}
                 >
                   {inc.status === 'RESOLVED' ? (
                     <CheckCircle2 className="h-6 w-6" />
@@ -192,24 +188,22 @@ export const IncidentsView: React.FC = () => {
                       #{inc.code}
                     </span>
                     <span
-                      className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
-                        inc.status === 'ACTIVE'
+                      className={`text-[10px] font-black px-2 py-0.5 rounded-full ${inc.status === 'ACTIVE'
                           ? 'bg-red-600 text-white animate-pulse'
                           : inc.status === 'RESPONDING'
-                          ? 'bg-amber-500 text-white'
-                          : inc.status === 'RESOLVED'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-slate-200 text-slate-700'
-                      }`}
+                            ? 'bg-amber-500 text-white'
+                            : inc.status === 'RESOLVED'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-slate-200 text-slate-700'
+                        }`}
                     >
                       {inc.status}
                     </span>
                     <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
-                        inc.severity === 'CRITICAL'
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded border ${inc.severity === 'CRITICAL'
                           ? 'border-red-300 bg-red-100 text-red-700'
                           : 'border-slate-200 bg-slate-100 text-slate-700'
-                      }`}
+                        }`}
                     >
                       SEVERITY: {inc.severity}
                     </span>

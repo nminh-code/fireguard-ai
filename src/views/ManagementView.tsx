@@ -125,7 +125,7 @@ export const ManagementView: React.FC = () => {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl md:text-2xl font-black tracking-tight text-slate-900">
-              Quản Trị Vận Hành (Operational Management)
+              Quản Trị Vận Hành
             </h1>
             <span className="rounded-full bg-slate-900 text-white px-2.5 py-0.5 text-xs font-bold uppercase font-mono">
               Admin Console
@@ -150,11 +150,10 @@ export const ManagementView: React.FC = () => {
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
         <button
           onClick={() => setActiveTab('cameras')}
-          className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
-            activeTab === 'cameras'
-              ? 'bg-slate-900 text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-          }`}
+          className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === 'cameras'
+            ? 'bg-slate-900 text-white shadow-xs'
+            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
         >
           <Video className="h-3.5 w-3.5" />
           <span>Danh Sách Camera Thật ({savedCameras.length})</span>
@@ -162,11 +161,10 @@ export const ManagementView: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('modules')}
-          className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
-            activeTab === 'modules'
-              ? 'bg-slate-900 text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-          }`}
+          className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === 'modules'
+            ? 'bg-slate-900 text-white shadow-xs'
+            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
         >
           <Activity className="h-3.5 w-3.5" />
           <span>Cấu Hình 2 AI Modules</span>
@@ -174,11 +172,10 @@ export const ManagementView: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('users')}
-          className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
-            activeTab === 'users'
-              ? 'bg-slate-900 text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-          }`}
+          className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === 'users'
+            ? 'bg-slate-900 text-white shadow-xs'
+            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
         >
           <Users className="h-3.5 w-3.5" />
           <span>Nhân Sự & Phân Quyền ({users.length})</span>
@@ -186,11 +183,10 @@ export const ManagementView: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('roles')}
-          className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
-            activeTab === 'roles'
-              ? 'bg-slate-900 text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-          }`}
+          className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${activeTab === 'roles'
+            ? 'bg-slate-900 text-white shadow-xs'
+            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`}
         >
           <ShieldCheck className="h-3.5 w-3.5" />
           <span>Ma Trận Quyền Hạn (RBAC)</span>
@@ -206,7 +202,6 @@ export const ManagementView: React.FC = () => {
                 Camera CCTV/IP Thực Tế Đã Đăng Ký ({savedCameras.length})
               </h2>
               <p className="text-xs text-slate-500">
-                Dữ liệu camera được kết nối trực tiếp với Video Bridge RTSP và nạp vào Màn hình giám sát
               </p>
             </div>
 
@@ -265,7 +260,6 @@ export const ManagementView: React.FC = () => {
                         <tr key={cam.id} className="hover:bg-slate-50 transition-colors">
                           <td className="px-4 py-3 font-bold text-slate-900">
                             <div>{cam.name}</div>
-                            <span className="text-[10px] text-slate-400 font-mono">{cam.id}</span>
                           </td>
                           <td className="px-4 py-3">
                             <span className="font-semibold text-slate-800">{cam.brand}</span>
@@ -446,13 +440,12 @@ export const ManagementView: React.FC = () => {
                       <td className="px-4 py-3 font-mono">{u.phone || '0912 345 678'}</td>
                       <td className="px-4 py-3">
                         <span
-                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
-                            u.role === 'ADMIN'
-                              ? 'bg-slate-900 text-white'
-                              : u.role === 'MANAGER'
+                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${u.role === 'ADMIN'
+                            ? 'bg-slate-900 text-white'
+                            : u.role === 'MANAGER'
                               ? 'bg-blue-100 text-blue-800'
                               : 'bg-emerald-100 text-emerald-800'
-                          }`}
+                            }`}
                         >
                           {u.role}
                         </span>

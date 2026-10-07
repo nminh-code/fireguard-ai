@@ -99,7 +99,7 @@ export default function App() {
 
           {/* Page Scrollable Area */}
           <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8" id="main-content">
-            <div className="mx-auto max-w-7xl">
+            <div className="w-full">
               <Routes>
                 <Route path="/" element={<DashboardView />} />
                 <Route path="/cameras" element={<CamerasView />} />
