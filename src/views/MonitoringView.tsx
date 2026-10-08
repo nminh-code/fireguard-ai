@@ -128,8 +128,10 @@ export const MonitoringView: React.FC = () => {
             : previous
         );
         if (initialized.current && current.alert && currentAlertKey !== latestAlertKey.current) {
-          setNewAlertId(currentId);
-          monitoringAlertAudio.handleAlert(current.alert);
+          if (current.alert.class === 'fire') {
+            setNewAlertId(currentId);
+            monitoringAlertAudio.handleAlert(current.alert);
+          }
         }
         if (!initialized.current || currentAlertKey !== latestAlertKey.current) {
           await refreshHistory();
@@ -212,26 +214,51 @@ export const MonitoringView: React.FC = () => {
   // Find currently selected camera for the Drawer
   const selectedCamera = cameraList.find((c) => c.id === selectedCameraId) || null;
 
-  // Determine if a camera has an active alert
+  // Helper to strictly match camera ID, with awareness of active live camera stream
+  const isCameraMatch = (idA?: string | null, idB?: string | null): boolean => {
+    if (!idA || !idB) return false;
+    const a = idA.trim().toLowerCase();
+    const b = idB.trim().toLowerCase();
+    if (a === b) return true;
+
+    // Map AI Pipeline backend active camera with the active live stream in frontend
+    const activeStreamId = cameraSession.activeStream?.cameraId?.trim().toLowerCase();
+    const isLiveConnected = Boolean(cameraSession.activeStream?.connected);
+    if (isLiveConnected && activeStreamId) {
+      const isALive = a === activeStreamId || a === 'yoosee-onvif2' || a === 'camera-onvif2';
+      const isBLive = b === activeStreamId || b === 'yoosee-onvif2' || b === 'camera-onvif2';
+      if (isALive && isBLive) return true;
+    }
+
+    return false;
+  };
+
+  // Determine if a camera has an active FIRE alert (Only FIRE triggers active alert state, SMOKE is logged in history only)
   const getCameraAlert = (camId: string): MonitoringAlert | null => {
-    if (latest && (latest.cameraId === camId || latest.cameraId === 'camera-01' || latest.cameraId === 'camera-02-ezviz')) {
+    if (latest && latest.class === 'fire' && isCameraMatch(latest.cameraId, camId)) {
       return latest;
     }
     return null;
   };
 
-  // Find linked incident for a camera/alert
+  // Find linked incident for a camera/alert (STRICTLY matching camera id)
   const getLinkedIncident = (camId: string): Incident | null => {
-    return incidents.find((i) => i.cameraId === camId && (i.status === 'ACTIVE' || i.status === 'RESPONDING')) ||
-      incidents.find((i) => i.status === 'ACTIVE' || i.status === 'RESPONDING') ||
-      incidents[0] || null;
+    return (
+      incidents.find(
+        (i) => isCameraMatch(i.cameraId, camId) && (i.status === 'ACTIVE' || i.status === 'RESPONDING')
+      ) ||
+      incidents.find((i) => isCameraMatch(i.cameraId, camId)) ||
+      null
+    );
   };
 
   const selectedCameraAlert = selectedCamera ? getCameraAlert(selectedCamera.id) : null;
   const linkedIncident = selectedCamera ? getLinkedIncident(selectedCamera.id) : null;
 
-  // Filter camera-specific alert history
-  const selectedCameraAlerts = alerts;
+  // Filter camera-specific alert history strictly by selected camera ID
+  const selectedCameraAlerts = selectedCamera
+    ? alerts.filter((a) => isCameraMatch(a.cameraId, selectedCamera.id))
+    : [];
 
   return (
     <div className="space-y-5 relative pb-10" id="monitoring-view">
@@ -632,20 +659,6 @@ export const MonitoringView: React.FC = () => {
                             {selectedCameraAlert.class === 'fire' ? '85.0%' : '80.0%'}
                           </div>
                         </div>
-
-                        <div className="rounded-xl bg-white p-2.5 border border-slate-200/80 shadow-2xs">
-                          <div className="text-slate-500 text-[10px] font-semibold">Khung hình liên tục</div>
-                          <div className="text-xs font-bold text-slate-800 font-mono">
-                            3 Frames
-                          </div>
-                        </div>
-
-                        <div className="rounded-xl bg-white p-2.5 border border-slate-200/80 shadow-2xs">
-                          <div className="text-slate-500 text-[10px] font-semibold">Frame Sequence</div>
-                          <div className="text-xs font-bold text-slate-900 font-mono">
-                            #{selectedCameraAlert.sequence}
-                          </div>
-                        </div>
                       </div>
 
                       {/* Evidence Section */}
@@ -719,8 +732,12 @@ export const MonitoringView: React.FC = () => {
                   <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                       <div>
-                        <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Lịch Sử Cảnh Báo</h3>
-                        <p className="text-[10px] text-slate-500">Sự kiện nhận diện gần nhất</p>
+                        <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                          Lịch Sử Cảnh Báo của {selectedCamera.name}
+                        </h3>
+                        <p className="text-[10px] text-slate-500">
+                          Sự kiện nhận diện gần nhất của camera {selectedCamera.id}
+                        </p>
                       </div>
                       <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono">
                         <RefreshCw className={`h-3 w-3 ${connection === 'loading' ? 'animate-spin' : ''}`} />
@@ -767,7 +784,7 @@ export const MonitoringView: React.FC = () => {
                       </div>
                     ) : (
                       <p className="text-xs text-slate-400 py-3 text-center bg-slate-50 rounded-lg">
-                        Chưa có sự kiện cảnh báo nào được lưu trong bộ nhớ.
+                        Chưa có sự kiện cảnh báo nào được ghi nhận cho camera này.
                       </p>
                     )}
                   </div>
