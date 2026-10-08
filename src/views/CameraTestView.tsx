@@ -6,7 +6,10 @@ import {
   CameraBrand,
   CameraProtocol,
 } from '../types';
-import { cameraConnectionService } from '../services/cameraConnectionService';
+import {
+  cameraConnectionService,
+  generateShortCameraId,
+} from '../services/cameraConnectionService';
 import { cameraSessionStore } from '../services/cameraSessionStore';
 import {
   Video,
@@ -75,7 +78,7 @@ export const CameraTestView: React.FC = () => {
 
     const assignedId =
       formData.id.trim() ||
-      `camera-${crypto.randomUUID()}`;
+      generateShortCameraId(formData.name, savedCameras);
 
     const configToTest: CameraConnectionConfig = {
       ...formData,
@@ -120,7 +123,7 @@ export const CameraTestView: React.FC = () => {
 
     const assignedId =
       formData.id.trim() ||
-      `camera-${crypto.randomUUID()}`;
+      generateShortCameraId(formData.name, savedCameras);
 
     const configToSave: CameraConnectionConfig = {
       ...formData,

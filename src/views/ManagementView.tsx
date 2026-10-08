@@ -2,7 +2,10 @@ import React, { useState, useEffect, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, UserRole, CameraConnectionConfig, CameraBrand, CameraProtocol } from '../types';
 import { authService } from '../services/authService';
-import { cameraConnectionService } from '../services/cameraConnectionService';
+import {
+  cameraConnectionService,
+  generateShortCameraId,
+} from '../services/cameraConnectionService';
 import { cameraSessionStore } from '../services/cameraSessionStore';
 import { realtimeService } from '../services/realtimeService';
 import {
@@ -87,7 +90,8 @@ export const ManagementView: React.FC = () => {
     }
 
     const assignedId =
-      cameraForm.id.trim() || `cam-${Date.now().toString().slice(-6)}`;
+      cameraForm.id.trim() ||
+      generateShortCameraId(cameraForm.name, savedCameras);
 
     const configToSave: CameraConnectionConfig = {
       ...cameraForm,

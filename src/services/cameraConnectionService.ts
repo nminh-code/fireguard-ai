@@ -27,6 +27,49 @@ export const CAMERA_API_ENDPOINTS = {
   DISCONNECT: (id: string) => `/api/v1/cameras/${id}/disconnect`,
 };
 
+export function generateShortCameraId(
+  name?: string,
+  existingCameras: { id: string }[] = []
+): string {
+  const safeName = (name || '').trim();
+
+  // 1. Try extracting number from name (e.g. "Camera 01", "CAM 2", "Camera 17")
+  const matchNum = safeName.match(/\d+/);
+  if (matchNum) {
+    const num = matchNum[0].padStart(2, '0');
+    const candidate = `cam-${num}`;
+    if (!existingCameras.some((c) => c.id.toLowerCase() === candidate.toLowerCase())) {
+      return candidate;
+    }
+  }
+
+  // 2. Try clean slug from brand/name (e.g. "Yoosee" -> "cam-yoosee")
+  const clean = safeName
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '')
+    .replace(/^(camera|cam)/, '');
+
+  if (clean.length > 0 && clean.length <= 10) {
+    const candidate = `cam-${clean}`;
+    if (!existingCameras.some((c) => c.id.toLowerCase() === candidate.toLowerCase())) {
+      return candidate;
+    }
+  }
+
+  // 3. Fallback to clean sequential number: cam-01, cam-02, cam-03...
+  let seq = 1;
+  while (
+    existingCameras.some(
+      (c) => c.id.toLowerCase() === `cam-${seq.toString().padStart(2, '0')}`
+    )
+  ) {
+    seq++;
+  }
+  return `cam-${seq.toString().padStart(2, '0')}`;
+}
+
 const STORAGE_KEY = 'favis_saved_camera_configs';
 const EZVIZ_MIGRATION_KEY = 'favis_camera02_ezviz_added';
 
@@ -63,6 +106,20 @@ class CameraConnectionService {
         if (!existing) this.savedCameras.push({ ...CAMERA_02 });
         this.persistToStorage();
         localStorage.setItem(EZVIZ_MIGRATION_KEY, '1');
+      }
+
+      // Auto-shorten legacy long UUID IDs (e.g. camera-2cad683a-991d-430e-8348-d6649fcfff42)
+      let hasLongId = false;
+      this.savedCameras = this.savedCameras.map((cam) => {
+        if (cam.id && cam.id.length > 20 && cam.id.includes('-')) {
+          hasLongId = true;
+          const shortId = generateShortCameraId(cam.name, this.savedCameras.filter(c => c !== cam));
+          return { ...cam, id: shortId };
+        }
+        return cam;
+      });
+      if (hasLongId) {
+        this.persistToStorage();
       }
     } catch {
       this.savedCameras = [...INITIAL_SAVED_CONFIGS];

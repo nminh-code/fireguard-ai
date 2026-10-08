@@ -120,11 +120,11 @@ export const MonitoringView: React.FC = () => {
         setHistory((previous) =>
           previous
             ? {
-                ...previous,
-                cameraId: current.cameraId,
-                sessionId: current.sessionId,
-                pipelineState: current.pipelineState,
-              }
+              ...previous,
+              cameraId: current.cameraId,
+              sessionId: current.sessionId,
+              pipelineState: current.pipelineState,
+            }
             : previous
         );
         if (initialized.current && current.alert && currentAlertKey !== latestAlertKey.current) {
@@ -309,20 +309,19 @@ export const MonitoringView: React.FC = () => {
             {/* Connection Status Badge */}
             <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs">
               <Radio
-                className={`h-4 w-4 ${
-                  connection === 'connected'
-                    ? 'text-emerald-600 animate-pulse'
-                    : connection === 'error'
+                className={`h-4 w-4 ${connection === 'connected'
+                  ? 'text-emerald-600 animate-pulse'
+                  : connection === 'error'
                     ? 'text-red-600'
                     : 'text-amber-600'
-                }`}
+                  }`}
               />
               <span className="font-bold text-slate-700">
                 {connection === 'loading'
                   ? 'Đang kết nối Alert API'
                   : connection === 'error'
-                  ? 'Mất kết nối API'
-                  : `Pipeline: ${pipelineState}`}
+                    ? 'Mất kết nối API'
+                    : `Pipeline: ${pipelineState}`}
               </span>
             </div>
           </div>
@@ -373,27 +372,24 @@ export const MonitoringView: React.FC = () => {
               <div
                 key={cam.id}
                 onClick={() => setSelectedCameraId(cam.id)}
-                className={`group relative rounded-2xl border bg-white overflow-hidden shadow-xs hover:shadow-xl transition-all cursor-pointer flex flex-col ${
-                  isAlert
-                    ? 'border-red-500 ring-2 ring-red-500/30'
-                    : isSelected
+                className={`group relative rounded-2xl border bg-white overflow-hidden shadow-xs hover:shadow-xl transition-all cursor-pointer flex flex-col ${isAlert
+                  ? 'border-red-500 ring-2 ring-red-500/30'
+                  : isSelected
                     ? 'border-blue-500 ring-2 ring-blue-500/20'
                     : 'border-slate-200 hover:border-slate-300'
-                }`}
+                  }`}
               >
                 {/* Card Top Header */}
                 <div
-                  className={`flex items-center justify-between px-4 py-3 border-b transition-colors ${
-                    isAlert
-                      ? 'bg-red-50/90 border-red-100 text-red-950'
-                      : 'bg-slate-50/80 border-slate-100 text-slate-900'
-                  }`}
+                  className={`flex items-center justify-between px-4 py-3 border-b transition-colors ${isAlert
+                    ? 'bg-red-50/90 border-red-100 text-red-950'
+                    : 'bg-slate-50/80 border-slate-100 text-slate-900'
+                    }`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div
-                      className={`flex h-8 w-8 items-center justify-center rounded-lg font-bold shrink-0 ${
-                        isAlert ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-700'
-                      }`}
+                      className={`flex h-8 w-8 items-center justify-center rounded-lg font-bold shrink-0 ${isAlert ? 'bg-red-600 text-white' : 'bg-slate-200 text-slate-700'
+                        }`}
                     >
                       {isAlert ? (
                         camAlert?.class === 'fire' ? (
@@ -451,11 +447,10 @@ export const MonitoringView: React.FC = () => {
 
                 {/* Bottom Status / Alert Summary Row */}
                 <div
-                  className={`px-4 py-2.5 flex items-center justify-between text-xs border-t transition-colors ${
-                    isAlert
-                      ? 'bg-red-50 text-red-900 border-red-100'
-                      : 'bg-white text-slate-600 border-slate-100'
-                  }`}
+                  className={`px-4 py-2.5 flex items-center justify-between text-xs border-t transition-colors ${isAlert
+                    ? 'bg-red-50 text-red-900 border-red-100'
+                    : 'bg-white text-slate-600 border-slate-100'
+                    }`}
                 >
                   <div className="flex items-center gap-2 font-bold min-w-0">
                     {isAlert ? (
@@ -511,13 +506,12 @@ export const MonitoringView: React.FC = () => {
             <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/95 px-5 sm:px-6 py-4 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 <div
-                  className={`flex h-10 w-10 items-center justify-center rounded-xl font-bold text-white shrink-0 shadow-xs ${
-                    selectedCameraAlert
-                      ? selectedCameraAlert.class === 'fire'
-                        ? 'bg-red-600'
-                        : 'bg-amber-600'
-                      : 'bg-slate-900'
-                  }`}
+                  className={`flex h-10 w-10 items-center justify-center rounded-xl font-bold text-white shrink-0 shadow-xs ${selectedCameraAlert
+                    ? selectedCameraAlert.class === 'fire'
+                      ? 'bg-red-600'
+                      : 'bg-amber-600'
+                    : 'bg-slate-900'
+                    }`}
                 >
                   {selectedCameraAlert ? (
                     <AlertTypeIcon type={selectedCameraAlert.class} />
@@ -615,19 +609,17 @@ export const MonitoringView: React.FC = () => {
                   {/* SECTION A: ACTIVE ALERT DETAILS (IF CAMERA HAS ALERT) */}
                   {selectedCameraAlert ? (
                     <div
-                      className={`rounded-2xl border-2 p-4 sm:p-5 shadow-sm space-y-4 ${
-                        selectedCameraAlert.class === 'fire'
-                          ? 'border-red-500 bg-red-50/60'
-                          : 'border-amber-500 bg-amber-50/60'
-                      }`}
+                      className={`rounded-2xl border-2 p-4 sm:p-5 shadow-sm space-y-4 ${selectedCameraAlert.class === 'fire'
+                        ? 'border-red-500 bg-red-50/60'
+                        : 'border-amber-500 bg-amber-50/60'
+                        }`}
                     >
                       {/* Alert Header Badge Row */}
                       <div className="flex items-center justify-between gap-2 flex-wrap border-b border-red-200/60 pb-3">
                         <div className="flex items-center gap-2">
                           <span
-                            className={`rounded-full px-3 py-1 text-xs font-black tracking-wider uppercase text-white shadow-xs ${
-                              selectedCameraAlert.class === 'fire' ? 'bg-red-600' : 'bg-amber-600'
-                            }`}
+                            className={`rounded-full px-3 py-1 text-xs font-black tracking-wider uppercase text-white shadow-xs ${selectedCameraAlert.class === 'fire' ? 'bg-red-600' : 'bg-amber-600'
+                              }`}
                           >
                             {selectedCameraAlert.class === 'fire' ? '🔥 FIRE DETECTED' : '💨 SMOKE DETECTED'}
                           </span>
@@ -733,10 +725,10 @@ export const MonitoringView: React.FC = () => {
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                       <div>
                         <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                          Lịch Sử Cảnh Báo của {selectedCamera.name}
+                          Lịch Sử Cảnh Báo
                         </h3>
                         <p className="text-[10px] text-slate-500">
-                          Sự kiện nhận diện gần nhất của camera {selectedCamera.id}
+                          Sự kiện nhận diện gần nhất
                         </p>
                       </div>
                       <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono">
@@ -754,9 +746,8 @@ export const MonitoringView: React.FC = () => {
                           >
                             <div className="flex items-center gap-2 min-w-0">
                               <span
-                                className={`rounded px-1.5 py-0.5 text-[9px] font-black text-white shrink-0 ${
-                                  a.class === 'fire' ? 'bg-red-600' : 'bg-amber-600'
-                                }`}
+                                className={`rounded px-1.5 py-0.5 text-[9px] font-black text-white shrink-0 ${a.class === 'fire' ? 'bg-red-600' : 'bg-amber-600'
+                                  }`}
                               >
                                 {a.class.toUpperCase()}
                               </span>
@@ -805,7 +796,7 @@ export const MonitoringView: React.FC = () => {
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-800 bg-slate-950 text-white">
               <div className="flex items-center gap-2">
                 <Flame className="h-4 w-4 text-red-500" />
-                <span className="text-sm font-bold tracking-wide">ẢNH BẰNG CHỨNG NHẬN DIỆN AI (EVIDENCE)</span>
+                <span className="text-sm font-bold tracking-wide">EVIDENCE</span>
               </div>
               <button
                 onClick={() => setLightboxEvidenceUrl(null)}
