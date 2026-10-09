@@ -1,0 +1,83 @@
+import { Site, SystemSettings } from '../models/site.model.js';
+
+export const INITIAL_SITE: Site = {
+  id: 'site-hp-01',
+  name: 'Nhà máy ABC - Hải Phòng',
+  address: 'Lô CN-08, Khu Công Nghiệp Đình Vũ, Quận Hải An, Hải Phòng',
+  city: 'Hải Phòng',
+  zones: [
+    {
+      id: 'zone-kho-a',
+      name: 'Kho nguyên liệu A',
+      code: 'KHO-A',
+      area: '3,200 m²',
+      description: 'Khu vực lưu trữ hạt nhựa, hóa chất phụ gia và bao bì carton',
+      coordinates: { x: 5, y: 10, width: 38, height: 35 },
+      cameraIds: ['cam-01', 'cam-02', 'cam-07', 'cam-08'],
+    },
+    {
+      id: 'zone-xuong-1',
+      name: 'Xưởng sản xuất 1',
+      code: 'XUONG-1',
+      area: '4,500 m²',
+      description: 'Dây chuyền ép đùn và gia công khuôn nhiệt cao',
+      coordinates: { x: 47, y: 10, width: 48, height: 35 },
+      cameraIds: ['cam-03', 'cam-04', 'cam-09', 'cam-10', 'cam-11'],
+    },
+    {
+      id: 'zone-xuong-2',
+      name: 'Xưởng sản xuất 2',
+      code: 'XUONG-2',
+      area: '4,000 m²',
+      description: 'Khu vực lắp ráp hoàn thiện và kiểm thử chất lượng',
+      coordinates: { x: 47, y: 50, width: 48, height: 32 },
+      cameraIds: ['cam-05', 'cam-06', 'cam-12', 'cam-13', 'cam-14'],
+    },
+    {
+      id: 'zone-kho-b',
+      name: 'Kho thành phẩm B',
+      code: 'KHO-B',
+      area: '3,800 m²',
+      description: 'Khu vực bốc xếp pallet xuất hàng và kho hàng thành phẩm',
+      coordinates: { x: 5, y: 50, width: 38, height: 32 },
+      cameraIds: ['cam-15', 'cam-16', 'cam-17', 'cam-18'],
+    },
+    {
+      id: 'zone-vp',
+      name: 'Văn phòng điều hành',
+      code: 'VP-HQ',
+      area: '1,200 m²',
+      description: 'Khu làm việc kỹ thuật, ban giám đốc và phòng máy server',
+      coordinates: { x: 5, y: 86, width: 44, height: 11 },
+      cameraIds: ['cam-19', 'cam-20', 'cam-21'],
+    },
+    {
+      id: 'zone-cong',
+      name: 'Cổng chính & Trạm bảo vệ',
+      code: 'GATE-01',
+      area: '600 m²',
+      description: 'Kiểm soát phương tiện ra vào và cân điện tử 80 tấn',
+      coordinates: { x: 53, y: 86, width: 42, height: 11 },
+      cameraIds: ['cam-22', 'cam-23', 'cam-24'],
+    },
+  ],
+};
+
+export const INITIAL_SETTINGS: SystemSettings = {
+  siteName: 'Nhà máy ABC - Hải Phòng',
+  siteAddress: 'Lô CN-08, Khu Công Nghiệp Đình Vũ, Quận Hải An, Hải Phòng',
+  detectionThreshold: 85,
+  smokeThreshold: 80,
+  verificationWindowSeconds: 3,
+  autoAlertAuthorities: true,
+  pushNotifications: true,
+  criticalAlertOverride: true,
+  soundAlert: true,
+  emailNotifications: true,
+  emergencySms: true,
+  emergencyContacts: [
+    { name: 'Đội PCCC KCN Đình Vũ', role: 'Cảnh sát PCCC chuyên trách', phone: '114 / 0225 3888 114' },
+    { name: 'Ban Giám Đốc Nhà Máy', role: 'Chỉ huy ứng phó khẩn cấp', phone: '0912 345 678' },
+    { name: 'Trạm Y Tế KCN', role: 'Hỗ trợ y tế & sơ cứu', phone: '0225 3777 115' },
+  ],
+};

@@ -1,0 +1,30 @@
+{
+  "siteName": "Nhà máy ABC - Hải Phòng",
+  "siteAddress": "Lô CN-08, Khu Công Nghiệp Đình Vũ, Quận Hải An, Hải Phòng",
+  "detectionThreshold": 85,
+  "smokeThreshold": 80,
+  "verificationWindowSeconds": 3,
+  "autoAlertAuthorities": true,
+  "pushNotifications": true,
+  "criticalAlertOverride": true,
+  "soundAlert": true,
+  "emailNotifications": true,
+  "emergencySms": true,
+  "emergencyContacts": [
+    {
+      "name": "Đội PCCC KCN Đình Vũ",
+      "role": "Cảnh sát PCCC chuyên trách",
+      "phone": "114 / 0225 3888 114"
+    },
+    {
+      "name": "Ban Giám Đốc Nhà Máy",
+      "role": "Chỉ huy ứng phó khẩn cấp",
+      "phone": "0912 345 678"
+    },
+    {
+      "name": "Trạm Y Tế KCN",
+      "role": "Hỗ trợ y tế & sơ cứu",
+      "phone": "0225 3777 115"
+    }
+  ]
+}

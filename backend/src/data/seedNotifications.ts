@@ -1,0 +1,37 @@
+import { Notification } from '../models/notification.model.js';
+
+export const INITIAL_NOTIFICATIONS: Notification[] = [
+  {
+    id: 'notif-001',
+    type: 'FIRE_CONFIRMED',
+    title: '🔥 FIRE CONFIRMED',
+    message: 'Phát hiện đám cháy cấp bách tại Kho nguyên liệu A (Camera CAM-08). Độ tin cậy AI 96%.',
+    location: 'Kho nguyên liệu A',
+    cameraCode: 'CAM-08',
+    incidentId: 'inc-001',
+    severity: 'CRITICAL',
+    timestamp: '14:32:08',
+    read: false,
+  },
+  {
+    id: 'notif-002',
+    type: 'CAMERA_OFFLINE',
+    title: '⚠️ CẢNH BÁO MẤT KẾT NỐI CAMERA',
+    message: 'Camera CAM-14 (Xưởng 2 - Trạm biến áp nội bộ) bị mất tín hiệu RTSP.',
+    location: 'Xưởng sản xuất 2',
+    cameraCode: 'CAM-14',
+    severity: 'MEDIUM',
+    timestamp: '14:21:08',
+    read: false,
+  },
+  {
+    id: 'notif-003',
+    type: 'SYSTEM',
+    title: 'Đồng bộ AI Favis hoàn tất',
+    message: 'Kiểm tra 24 luồng camera định kỳ lúc 14:00:00. 23/24 camera hoạt động bình thường.',
+    location: 'Toàn nhà máy',
+    severity: 'LOW',
+    timestamp: '14:00:00',
+    read: true,
+  },
+];

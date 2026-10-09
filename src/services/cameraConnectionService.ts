@@ -8,23 +8,17 @@ import {
  * Camera Connection Service
  *
  * Frontend service abstraction layer for managing CCTV/IP camera connections.
- * This service communicates with the Laravel Backend API.
- * The backend is responsible for:
- *   1. Direct RTSP / ONVIF handshake with physical cameras
- *   2. Credential validation inside secure network
- *   3. AI Computer Vision pipelines and stream ingestion
- *
- * Currently operating in [MOCK / PRE-INTEGRATION MODE]:
- * If the Laravel backend is not yet available, calls will safely report
- * 'Backend connection service not configured'.
+ * Communicates with the FAVIS AI Backend API & Video Bridge.
  */
 
-// Planned backend API endpoints (to be implemented via Codex in Laravel)
+const BACKEND_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
+
+// Backend / Bridge API endpoints
 export const CAMERA_API_ENDPOINTS = {
   TEST_CONNECTION: '/api/v1/cameras/test-connection',
-  SAVE_CAMERA: '/api/v1/cameras',
-  GET_STATUS: (id: string) => `/api/v1/cameras/${id}/status`,
-  DISCONNECT: (id: string) => `/api/v1/cameras/${id}/disconnect`,
+  SAVE_CAMERA: `${BACKEND_BASE_URL}/cameras/configs`,
+  GET_STATUS: (id: string) => `/api/v1/cameras/${encodeURIComponent(id)}/status`,
+  DISCONNECT: (id: string) => `/api/v1/cameras/${encodeURIComponent(id)}/disconnect`,
 };
 
 export function generateShortCameraId(
@@ -79,7 +73,7 @@ const CAMERA_02: CameraConnectionConfig = {
   username: 'admin', password: '', streamUrl: 'rtsp://192.168.1.17:554/h264/ch1/main',
 };
 
-const INITIAL_SAVED_CONFIGS: CameraConnectionConfig[] = [];
+const INITIAL_SAVED_CONFIGS: CameraConnectionConfig[] = [CAMERA_02];
 
 class CameraConnectionService {
   private savedCameras: CameraConnectionConfig[] = [];
@@ -87,6 +81,41 @@ class CameraConnectionService {
 
   constructor() {
     this.loadFromStorage();
+    this.syncWithBackend().catch(() => {});
+  }
+
+  private async syncWithBackend(): Promise<void> {
+    try {
+      const res = await fetch(`${BACKEND_BASE_URL}/cameras/configs`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          // Merge remote with local configs (remote takes priority)
+          const merged = [...json.data];
+          this.savedCameras.forEach((local) => {
+            if (!merged.some((r: CameraConnectionConfig) => r.id === local.id)) {
+              merged.push(local);
+              // Push local-only cameras up to Backend
+              this.saveCameraToBackend(local).catch(() => {});
+            }
+          });
+          this.savedCameras = merged;
+          this.persistToStorage();
+        }
+      }
+    } catch {
+      // Backend not reached, keep existing local storage state
+    }
+  }
+
+  private async saveCameraToBackend(config: CameraConnectionConfig): Promise<void> {
+    try {
+      await fetch(`${BACKEND_BASE_URL}/cameras/configs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+    } catch {}
   }
 
   private loadFromStorage(): void {
@@ -99,7 +128,6 @@ class CameraConnectionService {
         this.persistToStorage();
       }
       // Add once to existing installations without replacing Camera 01 or user edits.
-      // The marker also allows an explicitly deleted Camera 02 to stay deleted.
       if (!localStorage.getItem(EZVIZ_MIGRATION_KEY)) {
         const existing = this.savedCameras.some(camera => camera.id === CAMERA_02.id ||
           (camera.ip === CAMERA_02.ip && camera.brand === 'Ezviz'));
@@ -108,7 +136,7 @@ class CameraConnectionService {
         localStorage.setItem(EZVIZ_MIGRATION_KEY, '1');
       }
 
-      // Auto-shorten legacy long UUID IDs (e.g. camera-2cad683a-991d-430e-8348-d6649fcfff42)
+      // Auto-shorten legacy long UUID IDs
       let hasLongId = false;
       this.savedCameras = this.savedCameras.map((cam) => {
         if (cam.id && cam.id.length > 20 && cam.id.includes('-')) {
@@ -133,12 +161,9 @@ class CameraConnectionService {
 
   private persistToStorage(): void {
     try {
-      // Clean sensitive fields before storage if any
       const sanitized = this.savedCameras.map((c) => this.sanitizeForStorage(c));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
-    } catch {
-      // Ignore storage errors in sandbox
-    }
+    } catch {}
   }
 
   private sanitizeForStorage(config: CameraConnectionConfig): CameraConnectionConfig {
@@ -149,7 +174,6 @@ class CameraConnectionService {
       parsed.password = '';
       streamUrl = parsed.toString();
     } catch {
-      // Preserve incomplete/non-URL paths, but never persist an obvious credential section.
       streamUrl = streamUrl.replace(/^(rtsp:\/\/)[^@/]+@/i, '$1');
     }
     return { ...config, password: '', streamUrl };
@@ -165,11 +189,6 @@ class CameraConnectionService {
 
   /**
    * Test connection to a camera.
-   *
-   * Flow:
-   * 1. Attempts to invoke POST /api/v1/cameras/test-connection on the backend
-   * 2. If the backend is not yet reached/configured, strictly returns FAILED status
-   *    with 'Backend connection service not configured' (no fake CONNECTED).
    */
   async testConnection(
     cameraConfig: CameraConnectionConfig
@@ -177,7 +196,6 @@ class CameraConnectionService {
     this.connectionStatuses[cameraConfig.id] = 'CONNECTING';
 
     try {
-      // Send payload without logging password
       const payload = {
         id: cameraConfig.id,
         name: cameraConfig.name,
@@ -217,15 +235,12 @@ class CameraConnectionService {
         };
       }
 
-      // Backend returned HTTP error status
       this.connectionStatuses[cameraConfig.id] = 'FAILED';
       const errText = await response.text();
       let message = errText;
       try {
         message = (JSON.parse(errText) as { error?: string }).error || errText;
-      } catch {
-        // The bridge may return plain text for an infrastructure error.
-      }
+      } catch {}
       return {
         cameraId: cameraConfig.id,
         status: 'FAILED',
@@ -237,7 +252,6 @@ class CameraConnectionService {
         }`,
       };
     } catch {
-      // Backend not yet available or fetch failed
       this.connectionStatuses[cameraConfig.id] = 'FAILED';
       return {
         cameraId: cameraConfig.id,
@@ -251,7 +265,7 @@ class CameraConnectionService {
   }
 
   /**
-   * Save or update camera connection configuration in local storage / mock state.
+   * Save or update camera connection configuration.
    */
   async saveCamera(
     cameraConfig: CameraConnectionConfig
@@ -272,33 +286,26 @@ class CameraConnectionService {
     }
 
     this.persistToStorage();
+    this.saveCameraToBackend(safeConfig).catch(() => {});
 
-    // Optionally notify backend if available in the future
+    // Also inform video bridge if available
     try {
-      fetch(CAMERA_API_ENDPOINTS.SAVE_CAMERA, {
+      fetch('/api/v1/cameras', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cameraConfig),
       }).catch(() => {});
-    } catch {
-      // Silent catch for mock phase
-    }
+    } catch {}
 
     return { success: true, camera: safeConfig };
   }
 
-  /**
-   * Get current connection status of a camera by ID.
-   */
   async getCameraConnectionStatus(
     cameraId: string
   ): Promise<CameraConnectionStatus> {
     return this.connectionStatuses[cameraId] || 'NOT_CONNECTED';
   }
 
-  /**
-   * Disconnect a camera stream/session.
-   */
   async disconnectCamera(cameraId: string): Promise<{ success: boolean }> {
     this.connectionStatuses[cameraId] = 'DISCONNECTED';
 
@@ -306,27 +313,25 @@ class CameraConnectionService {
       fetch(CAMERA_API_ENDPOINTS.DISCONNECT(cameraId), {
         method: 'POST',
       }).catch(() => {});
-    } catch {
-      // Silent catch
-    }
+    } catch {}
 
     return { success: true };
   }
 
-  /**
-   * Get all saved camera configurations (Mock/Local State).
-   */
   getSavedCameras(): CameraConnectionConfig[] {
     return [...this.savedCameras];
   }
 
-  /**
-   * Delete a saved camera configuration.
-   */
   deleteCamera(cameraId: string): boolean {
     this.savedCameras = this.savedCameras.filter((c) => c.id !== cameraId);
     delete this.connectionStatuses[cameraId];
     this.persistToStorage();
+
+    // Sync deletion to Backend
+    fetch(`${BACKEND_BASE_URL}/cameras/configs/${encodeURIComponent(cameraId)}`, {
+      method: 'DELETE',
+    }).catch(() => {});
+
     return true;
   }
 }

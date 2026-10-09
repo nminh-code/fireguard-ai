@@ -1,0 +1,73 @@
+[
+  {
+    "id": "inc-001",
+    "code": "FG-2026-001",
+    "cameraId": "cam-08",
+    "cameraCode": "CAM-08",
+    "siteId": "site-hp-01",
+    "location": "Kho nguyên liệu A",
+    "eventType": "FIRE_CONFIRMED",
+    "fireConfidence": 96,
+    "smokeConfidence": 94,
+    "severity": "CRITICAL",
+    "status": "RESOLVED",
+    "detectedAt": "14:32:08",
+    "snapshotUrl": "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=1200&q=80",
+    "videoUrl": "",
+    "timeline": [
+      {
+        "id": "tl-1",
+        "time": "14:32:08",
+        "title": "AI phát hiện đám cháy & khói đặc",
+        "description": "Mô hình Favis Vision V3 phát hiện đốm lửa bốc lên từ pallet nguyên liệu kệ 04 với độ tin cậy 96%. Khói đậm đặc lan nhanh.",
+        "type": "DETECTED",
+        "actor": "Favis AI Engine"
+      },
+      {
+        "id": "tl-2",
+        "time": "14:32:09",
+        "title": "Xác nhận sự cố FIRE_CONFIRMED",
+        "description": "Hệ thống tự động kích hoạt mã cảnh báo cấp độ CRITICAL #FG-2026-001.",
+        "type": "CREATED",
+        "actor": "Favis Backend"
+      },
+      {
+        "id": "tl-3",
+        "time": "14:32:10",
+        "title": "Gửi cảnh báo khẩn cấp tới Quản lý & An ninh",
+        "description": "Đã gửi thông báo đẩy tới 4 nhân viên an ninh trực ca và gửi SMS khẩn cấp tới Quản lý nhà máy.",
+        "type": "NOTIFIED",
+        "actor": "Dispatch Service"
+      },
+      {
+        "id": "tl-4",
+        "time": "14:33:02",
+        "title": "Nhân viên an ninh tiếp nhận sự cố",
+        "description": "Bảo vệ ca trực mở chi tiết camera CAM-08 và xác nhận chuẩn bị đội ngũ cứu hỏa cơ sở.",
+        "type": "ACKNOWLEDGED",
+        "actor": "Trần Văn Mạnh (An ninh)"
+      },
+      {
+        "id": "tl-1791568366423",
+        "time": "00:52:46",
+        "title": "Kích hoạt lực lượng phản ứng tại chỗ",
+        "description": "Đội PCCC Test đã chuyển trạng thái sang ĐANG XỬ LÝ (RESPONDING). Đội PCCC cơ sở đang tiếp cận hiện trường.",
+        "type": "RESPONDING",
+        "actor": "Đội PCCC Test"
+      },
+      {
+        "id": "tl-1791568366442",
+        "time": "00:52:46",
+        "title": "Sự cố đã được giải quyết thành công",
+        "description": "Chỉ Huy PCCC đã kiểm tra hiện trường và đánh dấu ĐÃ XỬ LÝ (RESOLVED). Đã dập tắt an toàn",
+        "type": "RESOLVED",
+        "actor": "Chỉ Huy PCCC"
+      }
+    ],
+    "notes": "Đã dập tắt an toàn",
+    "responseStartedAt": "00:52:46",
+    "responseStartedBy": "Đội PCCC Test",
+    "resolvedAt": "00:52:46",
+    "resolvedBy": "Chỉ Huy PCCC"
+  }
+]

@@ -81,6 +81,7 @@ export interface IncidentTimeline {
 
 export interface Incident {
   id: string;
+  sourceAlertId?: string;
   code: string; // e.g. "FG-2026-001"
   cameraId: string;
   cameraCode: string;

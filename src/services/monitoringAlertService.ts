@@ -32,7 +32,8 @@ export interface LatestAlertResponse {
   alert: MonitoringAlert | null;
 }
 
-const API_BASE = 'http://127.0.0.1:8790/v1/alerts';
+const BACKEND_BASE = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
+const API_BASE = `${BACKEND_BASE}/alerts`;
 const PIPELINE_STATES = new Set<PipelineState>(['IDLE', 'CONNECTING', 'RUNNING', 'STOPPING', 'STOPPED', 'FAILED']);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -40,36 +41,64 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function parseAlert(value: unknown): MonitoringAlert {
-  if (!isRecord(value) || typeof value.id !== 'string' || typeof value.cameraId !== 'string' ||
-      typeof value.sessionId !== 'string' || !['fire', 'smoke'].includes(String(value.class)) ||
-      typeof value.confidence !== 'number' || !Number.isFinite(value.confidence) ||
-      value.confidence < 0.5 || value.confidence > 1 || value.boxFormat !== 'xyxy' ||
-      !Array.isArray(value.box) || value.box.length !== 4 || !value.box.every(Number.isFinite) ||
-      typeof value.timestamp !== 'string' || !Number.isFinite(Date.parse(value.timestamp)) ||
-      !Number.isSafeInteger(value.sequence) || !Number.isSafeInteger(value.width) ||
-      !Number.isSafeInteger(value.height) ||
-      !(value.evidenceUrl === null || (typeof value.evidenceUrl === 'string' &&
-        /^\/v1\/evidence\/[0-9a-f-]{36}\.png$/i.test(value.evidenceUrl)))) {
+  if (
+    !isRecord(value) ||
+    typeof value.id !== 'string' ||
+    typeof value.cameraId !== 'string' ||
+    typeof value.sessionId !== 'string' ||
+    !['fire', 'smoke'].includes(String(value.class)) ||
+    typeof value.confidence !== 'number' ||
+    !Number.isFinite(value.confidence) ||
+    value.confidence < 0.5 ||
+    value.confidence > 1 ||
+    value.boxFormat !== 'xyxy' ||
+    !Array.isArray(value.box) ||
+    value.box.length !== 4 ||
+    !value.box.every(Number.isFinite) ||
+    typeof value.timestamp !== 'string' ||
+    !Number.isFinite(Date.parse(value.timestamp)) ||
+    !Number.isSafeInteger(value.sequence) ||
+    !Number.isSafeInteger(value.width) ||
+    !Number.isSafeInteger(value.height) ||
+    !(
+      value.evidenceUrl === null ||
+      (typeof value.evidenceUrl === 'string' &&
+        /^\/(api\/v1|v1)\/evidence\/[0-9a-f-]{36}\.png$/i.test(value.evidenceUrl))
+    )
+  ) {
     throw new Error('INVALID_ALERT_RESPONSE');
   }
   return value as unknown as MonitoringAlert;
 }
 
 export function evidenceHref(evidenceUrl: string): string {
-  return new URL(evidenceUrl, API_BASE).toString();
+  if (evidenceUrl.startsWith('http://') || evidenceUrl.startsWith('https://')) {
+    return evidenceUrl;
+  }
+  const baseUrl = API_BASE.replace(/\/alerts\/?$/, '');
+  const cleanPath = evidenceUrl.startsWith('/') ? evidenceUrl.slice(1) : evidenceUrl;
+  return new URL(cleanPath, baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`).toString();
 }
 
 function parseContext(value: unknown) {
-  if (!isRecord(value) || typeof value.cameraId !== 'string' ||
-      !(value.sessionId === null || typeof value.sessionId === 'string') ||
-      !PIPELINE_STATES.has(value.pipelineState as PipelineState)) {
+  if (
+    !isRecord(value) ||
+    typeof value.cameraId !== 'string' ||
+    !(value.sessionId === null || typeof value.sessionId === 'string') ||
+    !PIPELINE_STATES.has(value.pipelineState as PipelineState)
+  ) {
     throw new Error('INVALID_ALERT_RESPONSE');
   }
   return value;
 }
 
 async function getJson(path: string, signal: AbortSignal): Promise<unknown> {
-  const response = await fetch(path, { method: 'GET', signal, cache: 'no-store', credentials: 'omit' });
+  const response = await fetch(path, {
+    method: 'GET',
+    signal,
+    cache: 'no-store',
+    credentials: 'omit',
+  });
   if (!response.ok) throw new Error('ALERT_API_UNAVAILABLE');
   return response.json();
 }
@@ -77,16 +106,27 @@ async function getJson(path: string, signal: AbortSignal): Promise<unknown> {
 export async function getLatestAlert(signal: AbortSignal): Promise<LatestAlertResponse> {
   const value = parseContext(await getJson(`${API_BASE}/latest`, signal));
   if (!(value.alert === null || isRecord(value.alert))) throw new Error('INVALID_ALERT_RESPONSE');
-  return { ...value, alert: value.alert === null ? null : parseAlert(value.alert) } as LatestAlertResponse;
+  return {
+    ...value,
+    alert: value.alert === null ? null : parseAlert(value.alert),
+  } as LatestAlertResponse;
 }
 
 export async function getAlertHistory(signal: AbortSignal): Promise<AlertHistoryResponse> {
   const value = parseContext(await getJson(`${API_BASE}?limit=20`, signal));
-  if (!Array.isArray(value.alerts) || value.alerts.length > 20 ||
-      !Number.isSafeInteger(value.retained) || !Number.isSafeInteger(value.totalCreated) ||
-      !Number.isSafeInteger(value.capacity)) throw new Error('INVALID_ALERT_RESPONSE');
+  if (
+    !Array.isArray(value.alerts) ||
+    value.alerts.length > 20 ||
+    !Number.isSafeInteger(value.retained) ||
+    !Number.isSafeInteger(value.totalCreated) ||
+    !Number.isSafeInteger(value.capacity)
+  ) {
+    throw new Error('INVALID_ALERT_RESPONSE');
+  }
   const alerts = value.alerts.map(parseAlert);
-  if (new Set(alerts.map(alert => alert.id)).size !== alerts.length) throw new Error('INVALID_ALERT_RESPONSE');
+  if (new Set(alerts.map((alert) => alert.id)).size !== alerts.length) {
+    throw new Error('INVALID_ALERT_RESPONSE');
+  }
   return { ...value, alerts } as AlertHistoryResponse;
 }
 

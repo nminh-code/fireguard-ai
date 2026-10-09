@@ -45,7 +45,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, on
     setStats(s);
     const notifs = await notificationService.getNotifications();
     setNotifications(notifs);
-    setUnreadCount(notificationService.getUnreadCount() || 2);
+    setUnreadCount(notifs.filter((n) => !n.read).length);
   };
 
   useEffect(() => {
