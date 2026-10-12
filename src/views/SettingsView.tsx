@@ -23,12 +23,13 @@ export const SettingsView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'profile' | 'notifications' | 'system'>('notifications');
 
   useEffect(() => {
-    siteService.getSettings().then(setSettings);
+    siteService.getSettings().then(setSettings).catch(() => setSettings(null));
   }, []);
 
   const handleSave = async () => {
     if (!settings) return;
-    await siteService.updateSettings(settings);
+    try { await siteService.updateSettings(settings); }
+    catch { return; }
     soundManager.setEnabled(settings.soundAlert);
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 2500);

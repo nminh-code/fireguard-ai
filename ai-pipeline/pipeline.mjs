@@ -6,6 +6,7 @@ import { LatestFrameQueue } from './latest-frame-queue.mjs';
 import { ProcessorClient } from './processor-client.mjs';
 import { AlertStore } from './alert-store.mjs';
 import { EvidenceStore } from './evidence-store.mjs';
+import { AlertJournal } from './alert-journal.mjs';
 
 export function extractionArgs(settings, rtspUrl) {
   const { width, height, transport } = settings;
@@ -39,7 +40,7 @@ export class FramePipeline {
   constructor(settings, {
     spawnProcess = spawn,
     processorFactory = timeout => new ProcessorClient(timeout, { settings }),
-    evidenceStore = new EvidenceStore(settings.evidenceDirectory, Math.min(settings.alertCapacity, 100)),
+    evidenceStore = new EvidenceStore(settings.evidenceDirectory, Math.min(settings.alertCapacity, 100), Boolean(settings.alertJournalPath)),
   } = {}) {
     this.settings = settings;
     this.spawnProcess = spawnProcess;
@@ -50,6 +51,7 @@ export class FramePipeline {
     this.sessionId = null;
     this.latest = null;
     this.result = null;
+    this.sourceUrl = null;
     this.received = 0;
     this.processorState = 'IDLE';
     this.closed = Promise.resolve();
@@ -57,12 +59,37 @@ export class FramePipeline {
       cameraId: settings.cameraId, cooldownMs: settings.alertCooldownMs,
       delayMs: settings.alertDelayMs, capacity: settings.alertCapacity, evidenceStore,
       windowSize: settings.alertWindowSize ?? 15, requiredHits: settings.alertRequiredHits ?? 10,
+      journal: settings.alertJournalPath ? new AlertJournal(settings.alertJournalPath, settings.alertCapacity) : null,
+    });
+  }
+
+  reconfigure(settings) {
+    if (this.child || this.state === 'STOPPING') throw new Error('PIPELINE_BUSY');
+    this.settings = settings;
+    this.state = 'IDLE';
+    this.error = null;
+    this.sessionId = null;
+    this.latest = null;
+    this.result = null;
+    this.received = 0;
+    this.receivedBytes = 0;
+    this.processorState = 'IDLE';
+    this.processorError = null;
+    this.diagnostic = null;
+    this.sourceUrl = null;
+    this.alerts = new AlertStore({
+      cameraId: settings.cameraId, cooldownMs: settings.alertCooldownMs,
+      delayMs: settings.alertDelayMs, capacity: settings.alertCapacity,
+      evidenceStore: new EvidenceStore(settings.evidenceDirectory, Math.min(settings.alertCapacity, 100), Boolean(settings.alertJournalPath)),
+      windowSize: settings.alertWindowSize ?? 15, requiredHits: settings.alertRequiredHits ?? 10,
+      journal: settings.alertJournalPath ? new AlertJournal(settings.alertJournalPath, settings.alertCapacity) : null,
     });
   }
 
   start(rtspUrl) {
     if (this.child || this.state === 'STOPPING') throw new Error('PIPELINE_BUSY');
     this.sessionId = randomUUID();
+    this.sourceUrl = rtspUrl;
     this.alerts.beginSession(this.sessionId);
     this.state = 'CONNECTING';
     this.error = null;
@@ -95,7 +122,7 @@ export class FramePipeline {
       if (this.sessionId === sessionId && this.processorState === 'LOADING') {
         this.processorState = 'FAILED';
         this.processorError = 'PROCESSOR_LOAD_FAILED';
-        this.queue?.close();
+        this.fail('PROCESSOR_LOAD_FAILED');
       }
     });
     this.queue = new LatestFrameQueue(
@@ -209,7 +236,7 @@ export class FramePipeline {
     return {
       state: this.state, error: this.error, cameraId: this.settings.cameraId, sessionId: this.sessionId,
       source: 'RTSP', transport: this.settings.transport,
-      frameFormat: { pixelFormat: 'rgb24', width: this.settings.width, height: this.settings.height, fpsLimit: this.settings.fps },
+      frameFormat: { pixelFormat: 'rgb24', width: this.settings.width, height: this.settings.height, fpsLimit: this.settings.targetFps ?? this.settings.fps },
       receivedFrames: this.received, receivedBytes: this.receivedBytes ?? 0,
       diagnostic: this.diagnostic ?? null,
       alerts: this.alerts.status(),

@@ -1,5 +1,53 @@
 [
   {
+    "id": "notif-1791823222186",
+    "type": "INCIDENT_UPDATE",
+    "title": "✅ SỰ CỐ ĐÃ ĐƯỢC XỬ LÝ",
+    "message": "Sự cố #FG-2026-3686 tại Camera 01 EZVIZ (Ezviz • 192.168.1.11) đã được xử lý bởi Vũ Diễm.",
+    "location": "Camera 01 EZVIZ (Ezviz • 192.168.1.11)",
+    "cameraCode": "camera-01",
+    "incidentId": "inc-5241ff6a-e115-4b4d-b6aa-202ced7f3480",
+    "severity": "LOW",
+    "timestamp": "23:40:22",
+    "read": true
+  },
+  {
+    "id": "notif-1791822275423",
+    "type": "INCIDENT_UPDATE",
+    "title": "✅ SỰ CỐ ĐÃ ĐƯỢC XỬ LÝ",
+    "message": "Sự cố #FG-2026-1369 tại Camera cam-test (Khu vực giám sát camera) đã được xử lý bởi Vũ Diễm.",
+    "location": "Camera cam-test (Khu vực giám sát camera)",
+    "cameraCode": "cam-test",
+    "incidentId": "inc-97d6288b-7e69-424f-bc06-a96a29113a31",
+    "severity": "LOW",
+    "timestamp": "23:24:35",
+    "read": true
+  },
+  {
+    "id": "notif-1791821071353",
+    "type": "INCIDENT_UPDATE",
+    "title": "✅ SỰ CỐ ĐÃ ĐƯỢC XỬ LÝ",
+    "message": "Sự cố #FG-2026-4271 tại Camera cam-test (Khu vực giám sát camera) đã được xử lý bởi Vũ Diễm.",
+    "location": "Camera cam-test (Khu vực giám sát camera)",
+    "cameraCode": "cam-test",
+    "incidentId": "inc-55037043-110a-4320-9c3d-058f2739f884",
+    "severity": "LOW",
+    "timestamp": "23:04:31",
+    "read": true
+  },
+  {
+    "id": "notif-1791818841733",
+    "type": "INCIDENT_UPDATE",
+    "title": "✅ SỰ CỐ ĐÃ ĐƯỢC XỬ LÝ",
+    "message": "Sự cố #FG-2026-2384 tại Camera 01 EZVIZ (Ezviz • 192.168.1.11) đã được xử lý bởi Vũ Diễm.",
+    "location": "Camera 01 EZVIZ (Ezviz • 192.168.1.11)",
+    "cameraCode": "camera-01",
+    "incidentId": "inc-f6a0d7fc-5064-49c2-a11c-83045bbce400",
+    "severity": "LOW",
+    "timestamp": "22:27:21",
+    "read": true
+  },
+  {
     "id": "notif-001",
     "type": "FIRE_CONFIRMED",
     "title": "🔥 FIRE CONFIRMED",
@@ -9,7 +57,7 @@
     "incidentId": "inc-001",
     "severity": "CRITICAL",
     "timestamp": "14:32:08",
-    "read": false
+    "read": true
   },
   {
     "id": "notif-002",
@@ -20,7 +68,7 @@
     "cameraCode": "CAM-14",
     "severity": "MEDIUM",
     "timestamp": "14:21:08",
-    "read": false
+    "read": true
   },
   {
     "id": "notif-003",

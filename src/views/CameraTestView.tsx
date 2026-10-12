@@ -50,9 +50,9 @@ export const CameraTestView: React.FC = () => {
     refreshSavedCameras();
   }, []);
 
-  const refreshSavedCameras = () => {
-    const list = cameraConnectionService.getSavedCameras();
-    setSavedCameras(list);
+  const refreshSavedCameras = async () => {
+    try { setSavedCameras(await cameraConnectionService.refreshSavedCameras()); }
+    catch { setSavedCameras([]); }
   };
 
   const handleInputChange = (
@@ -98,6 +98,11 @@ export const CameraTestView: React.FC = () => {
       setConnectionResult(result);
       setConnectionStatus(result.status);
       cameraSessionStore.setConnectionResult(configToTest, result);
+      if (result.status === 'CONNECTED') {
+        // Automatically save camera configuration so it persists across views and reloads
+        await cameraConnectionService.saveCamera(configToTest);
+        refreshSavedCameras();
+      }
     } catch {
       setConnectionStatus('FAILED');
       const failedResult: CameraConnectionResult = {
@@ -130,7 +135,8 @@ export const CameraTestView: React.FC = () => {
       id: assignedId,
     };
 
-    await cameraConnectionService.saveCamera(configToSave);
+    try { await cameraConnectionService.saveCamera(configToSave); }
+    catch { return; }
     refreshSavedCameras();
     setFormData(configToSave);
     cameraSessionStore.updateDraft(configToSave);
@@ -152,10 +158,11 @@ export const CameraTestView: React.FC = () => {
     setSaveSuccessMsg(null);
   };
 
-  const handleDeleteCamera = (id: string, name: string, e: React.MouseEvent) => {
+  const handleDeleteCamera = async (id: string, name: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (confirm(`Bạn có chắc muốn xóa camera “${name}”?`)) {
-      cameraConnectionService.deleteCamera(id);
+      try { await cameraConnectionService.deleteCamera(id); }
+      catch { return; }
       refreshSavedCameras();
       if (formData.id === id) {
         handleResetForm();

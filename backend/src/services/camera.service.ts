@@ -92,6 +92,11 @@ export class CameraService {
 
       if (response.ok) {
         const data = (await response.json()) as Record<string, unknown>;
+        const connected = data.status === 'CONNECTED' || (!('status' in data) && data.streamStatus === 'AVAILABLE');
+        if (!connected) {
+          return { cameraId: cameraConfig.id, status: 'FAILED', streamStatus: 'UNAVAILABLE', apiStatus: 'UNAVAILABLE',
+            lastChecked: new Date().toISOString(), errorMessage: String(data.errorMessage || 'Camera không trả về luồng RTSP hợp lệ.'), details: data };
+        }
         return {
           cameraId: cameraConfig.id,
           status: 'CONNECTED',

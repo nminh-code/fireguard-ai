@@ -6,7 +6,7 @@ import { INITIAL_SITE, INITIAL_SETTINGS } from '../data/seedSite.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DATA_DIR = path.resolve(__dirname, '../../data');
+const DATA_DIR = process.env.FAVIS_DATA_DIR || path.resolve(__dirname, '../../data');
 const SITE_FILE = path.join(DATA_DIR, 'site.json');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 
@@ -43,8 +43,7 @@ export class SiteRepository {
       }
     } catch (err) {
       console.error('[SiteRepository] Error initializing data files:', err);
-      this.site = { ...INITIAL_SITE };
-      this.settings = { ...INITIAL_SETTINGS };
+      throw err;
     }
   }
 
@@ -55,6 +54,8 @@ export class SiteRepository {
       fs.renameSync(tempPath, SITE_FILE);
     } catch (err) {
       console.error(`[SiteRepository] Error saving to ${SITE_FILE}:`, err);
+      if (fs.existsSync(SITE_FILE)) this.site = JSON.parse(fs.readFileSync(SITE_FILE, 'utf8'));
+      throw err;
     }
   }
 
@@ -65,6 +66,8 @@ export class SiteRepository {
       fs.renameSync(tempPath, SETTINGS_FILE);
     } catch (err) {
       console.error(`[SiteRepository] Error saving to ${SETTINGS_FILE}:`, err);
+      if (fs.existsSync(SETTINGS_FILE)) this.settings = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
+      throw err;
     }
   }
 

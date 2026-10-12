@@ -31,7 +31,7 @@ export class AlertStore {
   constructor({
     cameraId, cooldownMs = 30000, delayMs = 3000, capacity = 100,
     windowSize = 15, requiredHits = 10,
-    now = () => performance.now(), schedule = (callback, delay) => setTimeout(callback, delay), evidenceStore = null,
+    now = () => performance.now(), schedule = (callback, delay) => setTimeout(callback, delay), evidenceStore = null, journal = null,
   }) {
     this.cameraId = cameraId;
     this.cooldownMs = cooldownMs;
@@ -40,9 +40,11 @@ export class AlertStore {
     this.now = now;
     this.schedule = schedule;
     this.evidenceStore = evidenceStore;
-    this.events = [];
+    this.journal = journal;
+    this.events = journal ? [...journal.state.history].slice(-capacity) : [];
+    this.activeAlert = null;
     this.lastEmitted = new Map(); // At most two entries: fire and smoke.
-    this.totalCreated = 0;
+    this.totalCreated = journal?.state.totalCreated ?? 0;
     this.temporalFilter = new TemporalAlertFilter(windowSize, requiredHits);
     this.beginSession(null);
   }
@@ -75,6 +77,17 @@ export class AlertStore {
       }
     }
     const now = this.now(); // Monotonic time; camera/wall-clock changes do not bypass cooldown.
+
+    // Auto-clear active alert if no fire detection occurred for 5 seconds
+    const hasFire = Boolean(strongest.get('fire'));
+    if (hasFire) {
+      this.lastFireDetectionTime = now;
+    } else if (this.activeAlert && this.activeAlert.class === 'fire') {
+      if (this.lastFireDetectionTime === null || (now - this.lastFireDetectionTime > 5000)) {
+        this.activeAlert = null;
+      }
+    }
+
     for (const classType of ['fire', 'smoke']) {
       const detection = strongest.get(classType);
       const isHit = Boolean(detection);
@@ -108,15 +121,42 @@ export class AlertStore {
     let publishedEvent = event;
     try { preparedEvidence?.commit(); }
     catch { publishedEvent = Object.freeze({ ...event, evidenceUrl: null }); }
+    this.journal?.append(publishedEvent);
     this.events.push(publishedEvent);
+    this.activeAlert = publishedEvent;
+    if (event.class === 'fire') {
+      this.lastFireDetectionTime = this.now();
+    }
     if (this.events.length > this.capacity) {
       const removed = this.events.shift();
-      try { this.evidenceStore?.delete(removed.id); } catch { /* Retention cleanup is best effort. */ }
+      if (!this.journal) {
+        try { this.evidenceStore?.delete(removed.id); } catch { /* Retention cleanup is best effort. */ }
+      }
     }
     this.totalCreated++;
   }
 
-  latest() { return this.events.at(-1) ?? null; }
+  latest() {
+    if (this.activeAlert && this.activeAlert.class === 'fire') {
+      const now = this.now();
+      const ageMs = Date.now() - Date.parse(this.activeAlert.timestamp);
+      // If no fire seen for > 6s or alert timestamp is > 20s old without refreshed detection, clear active alert
+      if ((this.lastFireDetectionTime !== null && (now - this.lastFireDetectionTime > 6000)) ||
+          (ageMs > 20000 && (this.lastFireDetectionTime === null || (now - this.lastFireDetectionTime > 6000)))) {
+        this.activeAlert = null;
+      }
+    }
+    return this.activeAlert;
+  }
+
+  dismissActive({ alertId = null, cameraId = null } = {}) {
+    if (!this.activeAlert) return false;
+    if (alertId && this.activeAlert.id !== alertId) return false;
+    if (cameraId && this.activeAlert.cameraId !== cameraId) return false;
+    this.activeAlert = null;
+    this.lastFireDetectionTime = null;
+    return true;
+  }
 
   list(limit = this.capacity) { return this.events.slice(-limit).reverse(); }
 
@@ -125,6 +165,7 @@ export class AlertStore {
       confidenceThreshold: 0.5, cooldownMs: this.cooldownMs, delayMs: this.delayMs, capacity: this.capacity,
       windowSize: this.temporalFilter.windowSize, requiredHits: this.temporalFilter.requiredHits,
       retained: this.events.length, totalCreated: this.totalCreated, latestId: this.latest()?.id ?? null,
+      pendingDeliveries: this.journal?.state.pending.length ?? 0,
     };
   }
 }

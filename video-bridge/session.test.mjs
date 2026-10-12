@@ -149,7 +149,7 @@ test('real FFmpeg appends playable HLS with increasing sequence and restart disc
     // Short second run keeps the boundary in the rolling playlist.
     const args = ffmpegArgs('unused');
     const child = spawn(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i',
-      'testsrc2=size=160x120:rate=15', '-t', '6', ...args.slice(args.indexOf('-map'))],
+      'testsrc2=size=160x120:rate=15', '-t', '3', ...args.slice(args.indexOf('-map'))],
       { cwd: dir, windowsHide: true });
     child.stderr.resume(); child.stdout.resume();
     await new Promise((resolve, reject) => {

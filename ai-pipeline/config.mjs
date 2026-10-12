@@ -6,8 +6,8 @@ import dotenv from 'dotenv';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 
-export function loadEnvironment() {
-  dotenv.config({ path: path.join(root, '.env.ai.local'), quiet: true });
+export function loadEnvironment({ override = false } = {}) {
+  dotenv.config({ path: path.join(root, '.env.ai.local'), quiet: true, override });
 }
 
 export function findFfmpeg(customPath) {
@@ -68,6 +68,7 @@ export function readSettings(env = process.env) {
     alertWindowSize: numberSetting(env, 'AI_ALERT_WINDOW_SIZE', 1, 1, 100),
     alertRequiredHits: numberSetting(env, 'AI_ALERT_REQUIRED_HITS', 1, 1, 100),
     evidenceDirectory: path.join(root, 'ai-pipeline', 'evidence'),
+    alertJournalPath: path.join(root, 'ai-pipeline', 'evidence', 'alerts.json'),
   });
 }
 

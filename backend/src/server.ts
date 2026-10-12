@@ -1,7 +1,16 @@
 import { createApp } from './app.js';
 import { config } from './config/index.js';
+import { incidentService } from './services/incident.service.js';
 
 const app = createApp();
+let ingestionTimer: ReturnType<typeof setTimeout>;
+let stopping = false;
+async function ingestAlerts() {
+  try { await incidentService.syncWithRealAlerts(); }
+  catch (error) { console.error('[Alert ingestion] Persistence failed; will retry.', error); }
+  finally { if (!stopping) ingestionTimer = setTimeout(ingestAlerts, 1000); }
+}
+void ingestAlerts();
 
 const server = app.listen(config.port, config.host, () => {
   console.log(`===================================================`);
@@ -14,6 +23,8 @@ const server = app.listen(config.port, config.host, () => {
 
 // Graceful shutdown
 function shutdown() {
+  stopping = true;
+  clearTimeout(ingestionTimer);
   console.log('\nShutting down FAVIS AI Backend...');
   server.close(() => {
     console.log('Backend server stopped.');

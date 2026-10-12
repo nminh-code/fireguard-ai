@@ -6,7 +6,7 @@ import { INITIAL_CAMERAS, INITIAL_CAMERA_CONFIGS } from '../data/seedCameras.js'
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DATA_DIR = path.resolve(__dirname, '../../data');
+const DATA_DIR = process.env.FAVIS_DATA_DIR || path.resolve(__dirname, '../../data');
 const CAMERAS_FILE = path.join(DATA_DIR, 'cameras.json');
 const CONFIGS_FILE = path.join(DATA_DIR, 'camera-configs.json');
 
@@ -46,9 +46,7 @@ export class CameraRepository {
       this.initialized = true;
     } catch (err) {
       console.error('[CameraRepository] Error initializing data files:', err);
-      // Fallback in-memory
-      this.cameras = [...INITIAL_CAMERAS];
-      this.configs = [...INITIAL_CAMERA_CONFIGS];
+      throw err;
     }
   }
 
@@ -59,6 +57,10 @@ export class CameraRepository {
       fs.renameSync(tempPath, filePath);
     } catch (err) {
       console.error(`[CameraRepository] Error saving to ${filePath}:`, err);
+      const previous = fs.existsSync(filePath) ? JSON.parse(fs.readFileSync(filePath, 'utf8')) : [];
+      if (filePath === CAMERAS_FILE) this.cameras = previous;
+      if (filePath === CONFIGS_FILE) this.configs = previous;
+      throw err;
     }
   }
 

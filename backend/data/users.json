@@ -1,0 +1,42 @@
+[
+  {
+    "id": "usr-01",
+    "name": "Vũ Diễm",
+    "email": "vudiem353@gmail.com",
+    "role": "ADMIN",
+    "phone": "0912 345 678",
+    "status": "ACTIVE",
+    "lastActive": "Vừa xong",
+    "avatarUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80"
+  },
+  {
+    "id": "usr-02",
+    "name": "Nguyễn Văn A",
+    "email": "nguyenvana@favis.vn",
+    "role": "MANAGER",
+    "phone": "0988 123 456",
+    "status": "ACTIVE",
+    "lastActive": "5 phút trước",
+    "avatarUrl": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80"
+  },
+  {
+    "id": "usr-03",
+    "name": "Trần Văn Mạnh",
+    "email": "tranvanmanh@favis.vn",
+    "role": "SECURITY",
+    "phone": "0904 555 888",
+    "status": "ACTIVE",
+    "lastActive": "Đang trực tuyến",
+    "avatarUrl": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80"
+  },
+  {
+    "id": "usr-04",
+    "name": "Lê Hoàng Nam",
+    "email": "lehoangnam@favis.vn",
+    "role": "SECURITY",
+    "phone": "0936 777 999",
+    "status": "ACTIVE",
+    "lastActive": "2 giờ trước",
+    "avatarUrl": "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=200&q=80"
+  }
+]

@@ -6,6 +6,7 @@ import { evidenceRouter } from './evidence.routes.js';
 import { incidentRouter } from './incident.routes.js';
 import { notificationRouter } from './notification.routes.js';
 import { siteRouter } from './site.routes.js';
+import { userRouter } from './user.routes.js';
 
 export const apiRouter = Router();
 
@@ -29,4 +30,8 @@ apiRouter.use(notificationRouter);
 
 // Site & Settings Routes: /api/v1/site, /api/v1/settings...
 apiRouter.use(siteRouter);
+
+// User Routes: /api/v1/users...
+apiRouter.use(userRouter);
+
 

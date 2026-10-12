@@ -3,9 +3,6 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { UserRole } from '../types';
 import { FireLogo } from './FireLogo';
 import {
-  LayoutDashboard,
-  Flame,
-  Map,
   History,
   Settings,
   Users,
@@ -23,7 +20,15 @@ interface SidebarProps {
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   userRole: UserRole;
-  activeIncidentsCount: number;
+  activeIncidentsCount?: number;
+}
+
+interface NavItem {
+  name: string;
+  path: string;
+  icon: any;
+  badge?: number | null;
+  badgeColor?: string;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -32,21 +37,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed = false,
   onToggleCollapse,
   userRole,
-  activeIncidentsCount,
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const navItems = [
-    { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-    {
-      name: 'Incidents',
-      path: '/incidents',
-      icon: Flame,
-      badge: activeIncidentsCount > 0 ? activeIncidentsCount : null,
-      badgeColor: 'bg-red-600 text-white animate-pulse',
-    },
-    { name: 'Site Map', path: '/map', icon: Map },
+  const navItems: NavItem[] = [
     { name: 'History', path: '/history', icon: History },
     { name: 'Settings', path: '/settings', icon: Settings },
   ];
@@ -83,7 +78,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div
             className="flex items-center cursor-pointer shrink-0"
             onClick={() => {
-              navigate('/');
+              navigate('/monitoring');
               onClose();
             }}
             title={isCollapsed ? 'FAVIS AI' : undefined}

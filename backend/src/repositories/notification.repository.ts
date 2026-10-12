@@ -6,7 +6,7 @@ import { INITIAL_NOTIFICATIONS } from '../data/seedNotifications.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DATA_DIR = path.resolve(__dirname, '../../data');
+const DATA_DIR = process.env.FAVIS_DATA_DIR || path.resolve(__dirname, '../../data');
 const NOTIFICATIONS_FILE = path.join(DATA_DIR, 'notifications.json');
 
 export class NotificationRepository {
@@ -31,7 +31,7 @@ export class NotificationRepository {
       }
     } catch (err) {
       console.error('[NotificationRepository] Error initializing data file:', err);
-      this.notifications = [...INITIAL_NOTIFICATIONS];
+      throw err;
     }
   }
 
@@ -42,6 +42,8 @@ export class NotificationRepository {
       fs.renameSync(tempPath, NOTIFICATIONS_FILE);
     } catch (err) {
       console.error(`[NotificationRepository] Error saving to ${NOTIFICATIONS_FILE}:`, err);
+      this.notifications = fs.existsSync(NOTIFICATIONS_FILE) ? JSON.parse(fs.readFileSync(NOTIFICATIONS_FILE, 'utf8')) : [];
+      throw err;
     }
   }
 

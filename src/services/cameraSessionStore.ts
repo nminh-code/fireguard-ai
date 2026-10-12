@@ -32,13 +32,33 @@ const createEmptyForm = (): CameraConnectionConfig => ({
   streamUrl: '',
 });
 
-class CameraSessionStore {
-  private snapshot: CameraSessionSnapshot = {
+const SESSION_STORAGE_KEY = 'favis_camera_session_snapshot';
+
+function loadPersistedSnapshot(): CameraSessionSnapshot {
+  try {
+    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        return {
+          formData: parsed.formData || createEmptyForm(),
+          connectionStatus: parsed.connectionStatus || 'NOT_CONNECTED',
+          connectionResult: parsed.connectionResult || null,
+          activeStream: parsed.activeStream || null,
+        };
+      }
+    }
+  } catch {}
+  return {
     formData: createEmptyForm(),
     connectionStatus: 'NOT_CONNECTED',
     connectionResult: null,
     activeStream: null,
   };
+}
+
+class CameraSessionStore {
+  private snapshot: CameraSessionSnapshot = loadPersistedSnapshot();
 
   private listeners = new Set<() => void>();
 
@@ -51,6 +71,9 @@ class CameraSessionStore {
 
   private publish(next: CameraSessionSnapshot): void {
     this.snapshot = next;
+    try {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(next));
+    } catch {}
     this.listeners.forEach((listener) => listener());
   }
 
@@ -109,11 +132,14 @@ class CameraSessionStore {
   }
 
   resetCameraTest(): void {
+    try {
+      localStorage.removeItem(SESSION_STORAGE_KEY);
+    } catch {}
     this.publish({
-      ...this.snapshot,
       formData: createEmptyForm(),
       connectionStatus: 'NOT_CONNECTED',
       connectionResult: null,
+      activeStream: null,
     });
   }
 }

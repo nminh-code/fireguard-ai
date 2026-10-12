@@ -1,5 +1,3 @@
 streams:
-  camera-01:
-    - rtsp://admin@192.168.1.11:554/ch1/main
   cam-test:
     - rtsp://admin:Diem!123@192.168.1.8:554/onvif2

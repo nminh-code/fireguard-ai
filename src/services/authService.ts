@@ -2,6 +2,9 @@ import { User, UserRole } from '../types';
 import { INITIAL_USERS } from './mockData';
 import { realtimeService } from './realtimeService';
 
+const BACKEND_BASE_URL =
+  (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
+
 class AuthService {
   private users: User[] = [...INITIAL_USERS];
   private currentUser: User = { ...INITIAL_USERS[0] }; // Default: ADMIN (Vũ Diễm)
@@ -16,6 +19,8 @@ class AuthService {
         this.currentUser = { ...found };
       }
     }
+    // Eagerly sync user list with backend
+    this.getUsers().catch(() => {});
   }
 
   public isLoggedIn(): boolean {
@@ -56,7 +61,7 @@ class AuthService {
       lastActive: 'Đang trực tuyến',
     };
 
-    this.users.push(newUser);
+    this.addUser(newUser).catch(() => {});
     this.currentUser = newUser;
     this.authenticated = true;
     localStorage.setItem('favis_auth_token', 'true');
@@ -98,7 +103,7 @@ class AuthService {
       lastActive: 'Đang trực tuyến',
     };
 
-    this.users.push(newUser);
+    this.addUser(newUser).catch(() => {});
     this.currentUser = newUser;
     this.authenticated = true;
     localStorage.setItem('favis_auth_token', 'true');
@@ -146,20 +151,83 @@ class AuthService {
   }
 
   public async getUsers(): Promise<User[]> {
+    try {
+      const res = await fetch(`${BACKEND_BASE_URL}/users`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          this.users = json.data;
+          return [...this.users];
+        }
+      }
+    } catch {
+      // Fallback
+    }
     return [...this.users];
   }
 
-  public async addUser(user: Omit<User, 'id' | 'lastActive'>): Promise<User> {
+  public async addUser(user: Omit<User, 'id' | 'lastActive'> & Partial<User>): Promise<User> {
+    try {
+      const res = await fetch(`${BACKEND_BASE_URL}/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(user),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          const created: User = json.data;
+          const idx = this.users.findIndex((u) => u.id === created.id);
+          if (idx === -1) {
+            this.users.push(created);
+          } else {
+            this.users[idx] = created;
+          }
+          return created;
+        }
+      }
+    } catch {
+      // Fallback
+    }
+
     const newUser: User = {
       ...user,
-      id: `usr-${Date.now().toString().slice(-4)}`,
-      lastActive: 'Chưa đăng nhập',
+      id: user.id || `usr-${Date.now().toString().slice(-4)}`,
+      lastActive: user.lastActive || 'Chưa đăng nhập',
+      status: user.status || 'ACTIVE',
+      role: user.role || 'SECURITY',
+      phone: user.phone || '',
     };
     this.users.push(newUser);
     return newUser;
   }
 
   public async updateUser(id: string, updates: Partial<User>): Promise<User | null> {
+    try {
+      const res = await fetch(`${BACKEND_BASE_URL}/users/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          const updated: User = json.data;
+          const idx = this.users.findIndex((u) => u.id === id);
+          if (idx !== -1) {
+            this.users[idx] = updated;
+          }
+          if (this.currentUser.id === id) {
+            this.currentUser = { ...updated };
+            this.notifyListeners();
+          }
+          return updated;
+        }
+      }
+    } catch {
+      // Fallback
+    }
+
     const idx = this.users.findIndex((u) => u.id === id);
     if (idx === -1) return null;
     this.users[idx] = { ...this.users[idx], ...updates };
@@ -171,6 +239,21 @@ class AuthService {
   }
 
   public async deleteUser(id: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${BACKEND_BASE_URL}/users/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          this.users = this.users.filter((u) => u.id !== id);
+          return true;
+        }
+      }
+    } catch {
+      // Fallback
+    }
+
     const initialLen = this.users.length;
     this.users = this.users.filter((u) => u.id !== id);
     return this.users.length < initialLen;
@@ -204,3 +287,4 @@ class AuthService {
 }
 
 export const authService = new AuthService();
+

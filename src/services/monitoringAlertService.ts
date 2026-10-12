@@ -76,8 +76,10 @@ export function evidenceHref(evidenceUrl: string): string {
     return evidenceUrl;
   }
   const baseUrl = API_BASE.replace(/\/alerts\/?$/, '');
-  const cleanPath = evidenceUrl.startsWith('/') ? evidenceUrl.slice(1) : evidenceUrl;
-  return new URL(cleanPath, baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`).toString();
+  const match = evidenceUrl.match(/^\/?(?:api\/)?v1\/evidence\/([0-9a-f-]{36}\.png)$/i);
+  if (!match) return new URL(evidenceUrl.replace(/^\//, ''), `${baseUrl}/`).toString();
+  // API_BASE already contains `/api/v1`; avoid producing `/api/v1/api/v1/...`.
+  return new URL(`evidence/${match[1]}`, `${baseUrl.replace(/\/$/, '')}/`).toString();
 }
 
 function parseContext(value: unknown) {
@@ -133,3 +135,19 @@ export async function getAlertHistory(signal: AbortSignal): Promise<AlertHistory
 export function formatMonitoringTime(timestamp: string): string {
   return new Date(timestamp).toLocaleString('vi-VN', { hour12: false });
 }
+
+export async function clearActiveAlert(alertId?: string, cameraId?: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/clear`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ alertId, cameraId }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return data.success === true && data.cleared === true;
+  } catch {
+    return false;
+  }
+}
+

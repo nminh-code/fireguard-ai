@@ -3,6 +3,7 @@ import {
   CameraConnectionResult,
   CameraConnectionStatus,
 } from '../types';
+import { backendRequest, jsonRequest } from './backendApi';
 
 /**
  * Camera Connection Service
@@ -13,12 +14,14 @@ import {
 
 const BACKEND_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
 
-// Backend / Bridge API endpoints
+// Keep camera control calls on the backend relay. The Vite `/api` proxy points
+// at the video bridge for stream assets, while the backend owns this API and
+// normalizes bridge failures into a structured camera result.
 export const CAMERA_API_ENDPOINTS = {
-  TEST_CONNECTION: '/api/v1/cameras/test-connection',
+  TEST_CONNECTION: `${BACKEND_BASE_URL}/cameras/test-connection`,
   SAVE_CAMERA: `${BACKEND_BASE_URL}/cameras/configs`,
-  GET_STATUS: (id: string) => `/api/v1/cameras/${encodeURIComponent(id)}/status`,
-  DISCONNECT: (id: string) => `/api/v1/cameras/${encodeURIComponent(id)}/disconnect`,
+  GET_STATUS: (id: string) => `${BACKEND_BASE_URL}/cameras/${encodeURIComponent(id)}/status`,
+  DISCONNECT: (id: string) => `${BACKEND_BASE_URL}/cameras/${encodeURIComponent(id)}/disconnect`,
 };
 
 export function generateShortCameraId(
@@ -64,106 +67,14 @@ export function generateShortCameraId(
   return `cam-${seq.toString().padStart(2, '0')}`;
 }
 
-const STORAGE_KEY = 'favis_saved_camera_configs';
-const EZVIZ_MIGRATION_KEY = 'favis_camera02_ezviz_added';
-
-const CAMERA_02: CameraConnectionConfig = {
-  id: 'camera-02-ezviz', name: 'Camera 02 EZVIZ', brand: 'Ezviz',
-  model: 'CS-C6N', ip: '192.168.1.17', port: 554, protocol: 'RTSP',
-  username: 'admin', password: '', streamUrl: 'rtsp://192.168.1.17:554/h264/ch1/main',
-};
-
-const INITIAL_SAVED_CONFIGS: CameraConnectionConfig[] = [CAMERA_02];
-
 class CameraConnectionService {
   private savedCameras: CameraConnectionConfig[] = [];
   private connectionStatuses: Record<string, CameraConnectionStatus> = {};
 
-  constructor() {
-    this.loadFromStorage();
-    this.syncWithBackend().catch(() => {});
-  }
-
-  private async syncWithBackend(): Promise<void> {
-    try {
-      const res = await fetch(`${BACKEND_BASE_URL}/cameras/configs`);
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-          // Merge remote with local configs (remote takes priority)
-          const merged = [...json.data];
-          this.savedCameras.forEach((local) => {
-            if (!merged.some((r: CameraConnectionConfig) => r.id === local.id)) {
-              merged.push(local);
-              // Push local-only cameras up to Backend
-              this.saveCameraToBackend(local).catch(() => {});
-            }
-          });
-          this.savedCameras = merged;
-          this.persistToStorage();
-        }
-      }
-    } catch {
-      // Backend not reached, keep existing local storage state
-    }
-  }
-
-  private async saveCameraToBackend(config: CameraConnectionConfig): Promise<void> {
-    try {
-      await fetch(`${BACKEND_BASE_URL}/cameras/configs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config),
-      });
-    } catch {}
-  }
-
-  private loadFromStorage(): void {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        this.savedCameras = JSON.parse(raw);
-      } else {
-        this.savedCameras = [...INITIAL_SAVED_CONFIGS];
-        this.persistToStorage();
-      }
-      // Add once to existing installations without replacing Camera 01 or user edits.
-      if (!localStorage.getItem(EZVIZ_MIGRATION_KEY)) {
-        const existing = this.savedCameras.some(camera => camera.id === CAMERA_02.id ||
-          (camera.ip === CAMERA_02.ip && camera.brand === 'Ezviz'));
-        if (!existing) this.savedCameras.push({ ...CAMERA_02 });
-        this.persistToStorage();
-        localStorage.setItem(EZVIZ_MIGRATION_KEY, '1');
-      }
-
-      // Auto-shorten legacy long UUID IDs
-      let hasLongId = false;
-      this.savedCameras = this.savedCameras.map((cam) => {
-        if (cam.id && cam.id.length > 20 && cam.id.includes('-')) {
-          hasLongId = true;
-          const shortId = generateShortCameraId(cam.name, this.savedCameras.filter(c => c !== cam));
-          return { ...cam, id: shortId };
-        }
-        return cam;
-      });
-      if (hasLongId) {
-        this.persistToStorage();
-      }
-    } catch {
-      this.savedCameras = [...INITIAL_SAVED_CONFIGS];
-    }
-
-    // Default status for all saved cameras is strictly NOT_CONNECTED
-    this.savedCameras.forEach((cam) => {
-      this.connectionStatuses[cam.id] = 'NOT_CONNECTED';
-    });
-  }
-
-  private persistToStorage(): void {
-    try {
-      const sanitized = this.savedCameras.map((c) => this.sanitizeForStorage(c));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
-    } catch {}
+  public async refreshSavedCameras(): Promise<CameraConnectionConfig[]> {
+    const cameras = await backendRequest<CameraConnectionConfig[]>('/cameras/configs');
+    this.savedCameras = cameras.map(camera => this.sanitizeForStorage(camera));
+    return [...this.savedCameras];
   }
 
   private sanitizeForStorage(config: CameraConnectionConfig): CameraConnectionConfig {
@@ -220,17 +131,35 @@ class CameraConnectionService {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const data = (await response.json()) as Record<string, unknown>;
+        // The backend always returns HTTP 200 for a completed probe, including
+        // a failed RTSP handshake. Do not turn that failure into CONNECTED.
+        const connected = data.status === 'CONNECTED' ||
+          (!('status' in data) && data.streamStatus === 'AVAILABLE');
+        if (!connected) {
+          this.connectionStatuses[cameraConfig.id] = 'FAILED';
+          return {
+            cameraId: cameraConfig.id,
+            status: 'FAILED',
+            streamStatus: 'UNAVAILABLE',
+            apiStatus: 'UNAVAILABLE',
+            lastChecked: this.getFormattedTimestamp(),
+            errorMessage: typeof data.errorMessage === 'string'
+              ? data.errorMessage
+              : 'Camera không trả về luồng RTSP hợp lệ.',
+            details: data,
+          };
+        }
         this.connectionStatuses[cameraConfig.id] = 'CONNECTED';
         return {
           cameraId: cameraConfig.id,
           status: 'CONNECTED',
-          streamStatus: data.streamStatus || 'AVAILABLE',
-          apiStatus: data.apiStatus || 'AVAILABLE',
+          streamStatus: data.streamStatus === 'UNAVAILABLE' ? 'UNAVAILABLE' : 'AVAILABLE',
+          apiStatus: data.apiStatus === 'UNAVAILABLE' ? 'UNAVAILABLE' : 'AVAILABLE',
           lastChecked: this.getFormattedTimestamp(),
-          latencyMs: data.latencyMs,
-          playbackUrl: data.playbackUrl,
-          webrtcUrl: data.webrtcUrl,
+          latencyMs: typeof data.latencyMs === 'number' ? data.latencyMs : undefined,
+          playbackUrl: typeof data.playbackUrl === 'string' ? data.playbackUrl : undefined,
+          webrtcUrl: typeof data.webrtcUrl === 'string' ? data.webrtcUrl : undefined,
           details: data,
         };
       }
@@ -270,33 +199,12 @@ class CameraConnectionService {
   async saveCamera(
     cameraConfig: CameraConnectionConfig
   ): Promise<{ success: boolean; camera: CameraConnectionConfig }> {
-    const existingIndex = this.savedCameras.findIndex(
-      (c) => c.id === cameraConfig.id
-    );
-
-    const safeConfig = this.sanitizeForStorage(cameraConfig);
-    if (existingIndex >= 0) {
-      this.savedCameras[existingIndex] = safeConfig;
-    } else {
-      this.savedCameras.push(safeConfig);
-    }
-
-    if (!this.connectionStatuses[cameraConfig.id]) {
-      this.connectionStatuses[cameraConfig.id] = 'NOT_CONNECTED';
-    }
-
-    this.persistToStorage();
-    this.saveCameraToBackend(safeConfig).catch(() => {});
-
-    // Also inform video bridge if available
-    try {
-      fetch('/api/v1/cameras', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(cameraConfig),
-      }).catch(() => {});
-    } catch {}
-
+    const saved = await backendRequest<CameraConnectionConfig>('/cameras/configs', jsonRequest('POST', cameraConfig));
+    const safeConfig = this.sanitizeForStorage(saved);
+    const existingIndex = this.savedCameras.findIndex(camera => camera.id === saved.id);
+    if (existingIndex >= 0) this.savedCameras[existingIndex] = safeConfig;
+    else this.savedCameras.push(safeConfig);
+    this.connectionStatuses[saved.id] ||= 'NOT_CONNECTED';
     return { success: true, camera: safeConfig };
   }
 
@@ -307,33 +215,25 @@ class CameraConnectionService {
   }
 
   async disconnectCamera(cameraId: string): Promise<{ success: boolean }> {
+    const response = await fetch(CAMERA_API_ENDPOINTS.DISCONNECT(cameraId), { method: 'POST' });
+    if (!response.ok) throw new Error('CAMERA_DISCONNECT_FAILED');
+    const result = await response.json();
+    if (result.success !== true) throw new Error('CAMERA_DISCONNECT_FAILED');
     this.connectionStatuses[cameraId] = 'DISCONNECTED';
-
-    try {
-      fetch(CAMERA_API_ENDPOINTS.DISCONNECT(cameraId), {
-        method: 'POST',
-      }).catch(() => {});
-    } catch {}
-
-    return { success: true };
+    return result;
   }
 
   getSavedCameras(): CameraConnectionConfig[] {
     return [...this.savedCameras];
   }
 
-  deleteCamera(cameraId: string): boolean {
-    this.savedCameras = this.savedCameras.filter((c) => c.id !== cameraId);
+  async deleteCamera(cameraId: string): Promise<boolean> {
+    await backendRequest(`/cameras/configs/${encodeURIComponent(cameraId)}`, { method: 'DELETE' });
+    this.savedCameras = this.savedCameras.filter(camera => camera.id !== cameraId);
     delete this.connectionStatuses[cameraId];
-    this.persistToStorage();
-
-    // Sync deletion to Backend
-    fetch(`${BACKEND_BASE_URL}/cameras/configs/${encodeURIComponent(cameraId)}`, {
-      method: 'DELETE',
-    }).catch(() => {});
-
     return true;
   }
+
 }
 
 export const cameraConnectionService = new CameraConnectionService();

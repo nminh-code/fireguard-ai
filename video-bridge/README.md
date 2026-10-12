@@ -2,8 +2,12 @@
 
 Run from the project root: `npm run bridge`.
 
-The bridge uses RTSP **UDP only**, the configured URL (default `/onvif2`),
-and a 4 MiB receive buffer. The default FFmpeg executable is the installed
+The bridge reads the camera directly with the configured RTSP transport
+(`VIDEO_BRIDGE_RTSP_TRANSPORT`, then `AI_RTSP_TRANSPORT`; `tcp` is the
+fallback). The configured URL defaults to `/onvif2`, and the receive buffer is
+10 MiB. go2rtc is registered for optional WebRTC playback, while direct RTSP
+remains the connection test path; set `VIDEO_BRIDGE_USE_GO2RTC_PROXY=true` only
+when the local go2rtc RTSP path is known to be available. The default FFmpeg executable is the installed
 `D:\ffmpeg-9.0.1-essentials_build\bin\ffmpeg.exe`; the alternate requested layout
 `D:\ffmpeg-9.0.1-essentials\_build\bin\ffmpeg.exe` is preferred if present.
 `FFMPEG_PATH` still overrides both paths. Credentials come only from the request;

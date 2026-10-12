@@ -63,3 +63,14 @@ export async function getAlertById(req: Request, res: Response): Promise<void> {
     });
   }
 }
+
+export async function clearAlert(req: Request, res: Response): Promise<void> {
+  try {
+    const { alertId, cameraId } = req.body || {};
+    const cleared = await alertService.clearActiveAlert(alertId, cameraId);
+    res.status(200).json({ success: true, cleared });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+}
+

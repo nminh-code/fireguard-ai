@@ -20,7 +20,7 @@ import { encodeRgbPng, EvidenceStore } from '../evidence-store.mjs';
 // Protocol-only byte payloads and process doubles; never a runtime camera source.
 const testEvidenceDirectory = mkdtempSync(path.join(tmpdir(), 'ai-evidence-test-'));
 after(() => rmSync(testEvidenceDirectory, { recursive: true, force: true }));
-const defaultSettings = { ...readSettings({ AI_FRAME_WIDTH: '32', AI_FRAME_HEIGHT: '32' }), evidenceDirectory: testEvidenceDirectory };
+const defaultSettings = { ...readSettings({ AI_FRAME_WIDTH: '32', AI_FRAME_HEIGHT: '32' }), evidenceDirectory: testEvidenceDirectory, alertJournalPath: null };
 const settings = { ...defaultSettings, alertDelayMs: 0 };
 const byteCount = settings.width * settings.height * 3;
 const payload = () => Buffer.alloc(byteCount, 17);
@@ -473,6 +473,14 @@ test('alert HTTP API handles empty/history/latest/limits, polling CORS and prese
   assert.deepEqual(latest.alert, first.alerts[0]);
   assert.equal(latest.latestId, latest.alert.id);
   assert.deepEqual((await (await get('/v1/alerts?limit=1')).json()).alerts, [latest.alert]);
+  const cleared = await fetch(base + '/v1/alerts/clear', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ alertId: latest.alert.id, cameraId: latest.alert.cameraId }),
+  });
+  assert.equal(cleared.status, 200);
+  assert.equal((await cleared.json()).cleared, true);
+  assert.equal((await (await get('/v1/alerts/latest')).json()).alert, null);
+  assert.deepEqual((await (await get('/v1/alerts?limit=2')).json()).alerts, first.alerts);
   children[0].stdout.write(payload());
   await nextTurn();
   detections = [];
@@ -537,6 +545,18 @@ test('worker creation failure does not leave a misleading CONNECTING state', () 
   assert.equal(pipeline.start(testUrl).state, 'FAILED');
   assert.equal(pipeline.error, 'PROCESSOR_START_FAILED');
   assert.equal(spawnCalls, 0);
+});
+
+test('processor load failure leaves CONNECTING and closes the owned FFmpeg child', async t => {
+  const { children, pipeline } = harness();
+  pipeline.processorFactory = () => ({ ready: Promise.reject(new Error('unit model load failure')), process: async () => ({}), close: async () => {} });
+  t.after(() => pipeline.stop());
+  pipeline.start(testUrl);
+  await nextTurn();
+  await nextTurn();
+  assert.equal(pipeline.state, 'FAILED');
+  assert.equal(pipeline.error, 'PROCESSOR_LOAD_FAILED');
+  assert.deepEqual(children[0].signals, ['SIGTERM']);
 });
 
 test('start/stop/start uses new session and stops only its owned child; no partial/old frame', async t => {
@@ -751,7 +771,7 @@ test('real FFmpeg RGB -> queue -> YOLO best.pt -> HTTP status, then reap owned p
   loadEnvironment();
   const integrationEvidenceDirectory = mkdtempSync(path.join(tmpdir(), 'ai-evidence-integration-'));
   t.after(() => rmSync(integrationEvidenceDirectory, { recursive: true, force: true }));
-  const actualSettings = { ...readSettings(), evidenceDirectory: integrationEvidenceDirectory };
+  const actualSettings = { ...readSettings(), evidenceDirectory: integrationEvidenceDirectory, alertJournalPath: null };
   let spawns = 0;
   const pipeline = new FramePipeline({ ...actualSettings, connectTimeoutMs: 60000 }, {
     spawnProcess: (executable, _cameraArgs, options) => {

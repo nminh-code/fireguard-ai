@@ -22,9 +22,9 @@ export const HistoryView: React.FC = () => {
   const [dateFilter, setDateFilter] = useState('ALL');
 
   const loadHistory = async () => {
-    const data = await incidentService.getHistory();
-    setEvents(data);
-    setLoading(false);
+    try { setEvents(await incidentService.getHistory()); }
+    catch { setEvents([]); }
+    finally { setLoading(false); }
   };
 
   useEffect(() => {

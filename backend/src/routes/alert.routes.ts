@@ -3,6 +3,7 @@ import {
   getLatestAlert,
   getAlertHistory,
   getAlertById,
+  clearAlert,
 } from '../controllers/alert.controller.js';
 
 export const alertRouter = Router();
@@ -10,3 +11,4 @@ export const alertRouter = Router();
 alertRouter.get('/alerts/latest', getLatestAlert);
 alertRouter.get('/alerts', getAlertHistory);
 alertRouter.get('/alerts/:id', getAlertById);
+alertRouter.post('/alerts/clear', clearAlert);

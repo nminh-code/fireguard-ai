@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Incident, Camera } from '../types';
 import { incidentService } from '../services/incidentService';
+import { evidenceHref } from '../services/monitoringAlertService';
 import { cameraService } from '../services/cameraService';
 import { cameraSessionStore } from '../services/cameraSessionStore';
 import { authService } from '../services/authService';
@@ -44,13 +45,15 @@ export const IncidentDetailView: React.FC = () => {
 
   const loadIncident = async () => {
     if (!id) return;
+    try {
     const inc = await incidentService.getIncident(id);
     if (inc) {
       setIncident(inc);
       const cam = await cameraService.getCamera(inc.cameraId);
       setCamera(cam);
     }
-    setLoading(false);
+    } catch { setIncident(null); setCamera(null); }
+    finally { setLoading(false); }
   };
 
   useEffect(() => {
@@ -102,8 +105,9 @@ export const IncidentDetailView: React.FC = () => {
 
   const handleStartResponse = async () => {
     setActionLoading(true);
-    await incidentService.startResponse(incident.id, `${currentUser.name} (${currentUser.role})`);
-    setActionLoading(false);
+    try { await incidentService.startResponse(incident.id, `${currentUser.name} (${currentUser.role})`); }
+    catch { /* Backend error is displayed globally. */ }
+    finally { setActionLoading(false); }
   };
 
   const handleOpenResolveModal = () => {
@@ -114,21 +118,23 @@ export const IncidentDetailView: React.FC = () => {
 
   const handleConfirmResolve = async () => {
     setActionLoading(true);
-    soundManager.playSuccessTone();
-    await incidentService.resolveIncident(incident.id, resolverName, resolveNotes);
-    setShowResolveModal(false);
-    setActionLoading(false);
+    try {
+      await incidentService.resolveIncident(incident.id, resolverName, resolveNotes);
+      soundManager.playSuccessTone();
+      setShowResolveModal(false);
+    } catch { /* Keep the form open; Backend error is displayed globally. */ }
+    finally { setActionLoading(false); }
   };
 
   const handleMarkFalseAlarm = async () => {
     if (window.confirm('Bạn có chắc chắn muốn xác nhận đây là BÁO ĐỘNG GIẢ (False Alarm)?')) {
       setActionLoading(true);
-      await incidentService.markFalseAlarm(
+      try { await incidentService.markFalseAlarm(
         incident.id,
         currentUser.name,
         'Hơi nóng từ quá trình thông gió máy ép'
-      );
-      setActionLoading(false);
+      ); } catch { /* Backend error is displayed globally. */ }
+      finally { setActionLoading(false); }
     }
   };
 
@@ -328,7 +334,7 @@ export const IncidentDetailView: React.FC = () => {
             ) : incident.snapshotUrl ? (
               <div className="aspect-video w-full rounded-lg overflow-hidden bg-slate-950 flex items-center justify-center">
                 <img
-                  src={incident.snapshotUrl}
+                  src={evidenceHref(incident.snapshotUrl)}
                   alt="Snapshot Bằng Chứng Sự Cố"
                   className="max-h-full max-w-full object-contain"
                 />

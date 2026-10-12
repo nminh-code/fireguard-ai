@@ -2,56 +2,38 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { User, UserRole } from './types';
 import { authService } from './services/authService';
-import { incidentService } from './services/incidentService';
 import { realtimeService } from './services/realtimeService';
+import { backendErrorMessage, subscribeBackendErrors } from './services/backendApi';
 
 import { Sidebar } from './components/Sidebar';
 import { Topbar } from './components/Topbar';
 import { RealtimeToast } from './components/RealtimeToast';
 
 import { AuthView } from './views/AuthView';
-import { DashboardView } from './views/DashboardView';
 import { CamerasView } from './views/CamerasView';
-import { IncidentsView } from './views/IncidentsView';
-import { IncidentDetailView } from './views/IncidentDetailView';
-import { SiteMapView } from './views/SiteMapView';
 import { HistoryView } from './views/HistoryView';
 import { NotificationsView } from './views/NotificationsView';
 import { SettingsView } from './views/SettingsView';
 import { ManagementView } from './views/ManagementView';
 import { CameraTestView } from './views/CameraTestView';
 import { MonitoringView } from './views/MonitoringView';
+import { IncidentsView } from './views/IncidentsView';
+import { IncidentDetailView } from './views/IncidentDetailView';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(authService.isLoggedIn());
   const [currentUser, setCurrentUser] = useState<User>(authService.getCurrentUser());
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [activeIncidentsCount, setActiveIncidentsCount] = useState(0);
-
-  const refreshCounts = async () => {
-    const stats = await incidentService.getDashboardStats();
-    setActiveIncidentsCount(stats.activeIncidents);
-  };
+  const [backendError, setBackendError] = useState<string | null>(backendErrorMessage());
+  useEffect(() => subscribeBackendErrors(() => setBackendError(backendErrorMessage())), []);
 
   useEffect(() => {
-    refreshCounts();
-
-    const unsubGlobal = realtimeService.subscribeToGlobalState(() => {
-      refreshCounts();
-    });
-
-    const unsubIncident = realtimeService.subscribeToIncidentEvents(() => {
-      refreshCounts();
-    });
-
     const unsubAuth = realtimeService.subscribeToAuthEvents((user) => {
       setCurrentUser(user);
     });
 
     return () => {
-      unsubGlobal();
-      unsubIncident();
       unsubAuth();
     };
   }, []);
@@ -87,7 +69,6 @@ export default function App() {
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
           userRole={currentUser.role}
-          activeIncidentsCount={activeIncidentsCount}
         />
 
         {/* Main Content Area */}
@@ -108,21 +89,22 @@ export default function App() {
 
           {/* Page Scrollable Area */}
           <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8" id="main-content">
+            {backendError && <p role="alert" className="mb-4 text-sm text-red-700">{backendError}</p>}
             <div className="w-full">
               <Routes>
-                <Route path="/" element={<DashboardView />} />
+                <Route path="/" element={<Navigate to="/monitoring" replace />} />
+                <Route path="/monitoring" element={<MonitoringView />} />
                 <Route path="/cameras" element={<CamerasView />} />
                 <Route path="/incidents" element={<IncidentsView />} />
                 <Route path="/incidents/:id" element={<IncidentDetailView />} />
-                <Route path="/map" element={<SiteMapView />} />
+                <Route path="/map" element={<Navigate to="/monitoring" replace />} />
                 <Route path="/history" element={<HistoryView />} />
                 <Route path="/notifications" element={<NotificationsView />} />
                 <Route path="/settings" element={<SettingsView />} />
                 <Route path="/management" element={<ManagementView />} />
                 <Route path="/camera-test" element={<CameraTestView />} />
                 <Route path="/camera-connect" element={<CameraTestView />} />
-                <Route path="/monitoring" element={<MonitoringView />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
+                <Route path="*" element={<Navigate to="/monitoring" replace />} />
               </Routes>
             </div>
           </main>

@@ -27,18 +27,17 @@ import {
 import { HlsVideoPlayer } from '../components/HlsVideoPlayer';
 import { cameraSessionStore } from '../services/cameraSessionStore';
 import { cameraConnectionService } from '../services/cameraConnectionService';
-import { incidentService } from '../services/incidentService';
 import { monitoringAlertAudio } from '../services/monitoringAlertAudio';
 import {
   AlertHistoryResponse,
   LatestAlertResponse,
   MonitoringAlert,
+  clearActiveAlert,
   evidenceHref,
   formatMonitoringTime,
   getAlertHistory,
   getLatestAlert,
 } from '../services/monitoringAlertService';
-import { Incident } from '../types';
 
 const POLL_INTERVAL_MS = 2500;
 const REQUEST_TIMEOUT_MS = 5000;
@@ -55,7 +54,6 @@ export const MonitoringView: React.FC = () => {
   );
 
   const [savedCameras, setSavedCameras] = useState(cameraConnectionService.getSavedCameras());
-  const [incidents, setIncidents] = useState<Incident[]>([]);
   const [history, setHistory] = useState<AlertHistoryResponse | null>(null);
   const [latest, setLatest] = useState<MonitoringAlert | null>(null);
   const [newAlertId, setNewAlertId] = useState<string | null>(null);
@@ -72,10 +70,8 @@ export const MonitoringView: React.FC = () => {
   const latestAlertKey = useRef<string | null>(null);
   const initialized = useRef(false);
 
-  // Load incidents for direct linking
   useEffect(() => {
-    incidentService.getIncidents().then(setIncidents).catch(console.error);
-    setSavedCameras(cameraConnectionService.getSavedCameras());
+    cameraConnectionService.refreshSavedCameras().then(setSavedCameras).catch(() => setSavedCameras([]));
   }, []);
 
   // Backend Polling Effect (Preserved 100% untouched logic)
@@ -233,27 +229,29 @@ export const MonitoringView: React.FC = () => {
     return false;
   };
 
+  const handleDismissAlert = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    try {
+      const cleared = await clearActiveAlert(latest?.id, latest?.cameraId);
+      if (!cleared) { setConnection('error'); return; }
+    } catch {}
+    setLatest(null);
+    setNewAlertId(null);
+  };
+
   // Determine if a camera has an active FIRE alert (Only FIRE triggers active alert state, SMOKE is logged in history only)
   const getCameraAlert = (camId: string): MonitoringAlert | null => {
     if (latest && latest.class === 'fire' && isCameraMatch(latest.cameraId, camId)) {
-      return latest;
+      // Validate freshness: alert must be within the last 30 seconds
+      const ageMs = Date.now() - Date.parse(latest.timestamp);
+      if (ageMs < 30000) {
+        return latest;
+      }
     }
     return null;
   };
 
-  // Find linked incident for a camera/alert (STRICTLY matching camera id)
-  const getLinkedIncident = (camId: string): Incident | null => {
-    return (
-      incidents.find(
-        (i) => isCameraMatch(i.cameraId, camId) && (i.status === 'ACTIVE' || i.status === 'RESPONDING')
-      ) ||
-      incidents.find((i) => isCameraMatch(i.cameraId, camId)) ||
-      null
-    );
-  };
-
   const selectedCameraAlert = selectedCamera ? getCameraAlert(selectedCamera.id) : null;
-  const linkedIncident = selectedCamera ? getLinkedIncident(selectedCamera.id) : null;
 
   // Filter camera-specific alert history strictly by selected camera ID
   const selectedCameraAlerts = selectedCamera
@@ -334,7 +332,7 @@ export const MonitoringView: React.FC = () => {
           >
             <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
             <span>
-              Không kết nối được Alert API backend tại 127.0.0.1:8790. Hệ thống sẽ tự động thử lại.
+              Không kết nối được Alert API Backend. Hệ thống sẽ tự động thử lại.
             </span>
           </div>
         )}
@@ -475,9 +473,21 @@ export const MonitoringView: React.FC = () => {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500 group-hover:text-blue-600 transition-colors shrink-0 ml-2">
-                    <span>Chi tiết</span>
-                    <ChevronRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                    {isAlert && (
+                      <button
+                        type="button"
+                        onClick={handleDismissAlert}
+                        className="rounded bg-red-600 hover:bg-red-700 text-white px-2 py-1 text-[11px] font-bold shadow-2xs transition-colors cursor-pointer"
+                        title="Tắt cảnh báo cháy ngay"
+                      >
+                        Tắt cảnh báo
+                      </button>
+                    )}
+                    <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500 group-hover:text-blue-600 transition-colors">
+                      <span>Chi tiết</span>
+                      <ChevronRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -688,22 +698,16 @@ export const MonitoringView: React.FC = () => {
                         </div>
                       )}
 
-                      {/* Incident Navigation */}
-                      {linkedIncident && (
-                        <div className="pt-1">
-                          <button
-                            onClick={() => {
-                              setSelectedCameraId(null);
-                              navigate(`/incidents/${linkedIncident.id}`);
-                            }}
-                            className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 text-xs font-black shadow-md transition-all cursor-pointer tracking-wide"
-                          >
-                            <Shield className="h-4 w-4" />
-                            <span>MỞ CHI TIẾT SỰ CỐ (#{linkedIncident.id.substring(0, 8)})</span>
-                            <ArrowRight className="h-4 w-4" />
-                          </button>
-                        </div>
-                      )}
+                      {/* Action to dismiss/clear active alert */}
+                      <div className="pt-1">
+                        <button
+                          onClick={handleDismissAlert}
+                          className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 text-xs font-black shadow-md transition-all cursor-pointer tracking-wide"
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                          <span>TẮT CẢNH BÁO CHÁY / ĐÃ XỬ LÝ AN TOÀN</span>
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     /* SECTION B: NORMAL CAMERA */

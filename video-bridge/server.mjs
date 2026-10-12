@@ -68,6 +68,18 @@ const ffmpegAvailable = spawnSync(ffmpeg, ['-version'], { windowsHide: true }).s
 const go2rtcExe = findGo2rtc();
 let go2rtcChild = null;
 
+// Camera firmware differs on whether RTP is sent over UDP or interleaved TCP.
+// Prefer the explicit project setting (AI_RTSP_TRANSPORT is already used by
+// the frame pipeline), while retaining TCP as the safe default.
+const configuredTransport = String(
+  process.env.VIDEO_BRIDGE_RTSP_TRANSPORT || process.env.AI_RTSP_TRANSPORT || 'tcp'
+).trim().toLowerCase();
+const rtspTransport = configuredTransport === 'udp' ? 'udp' : 'tcp';
+// go2rtc is still registered for optional WebRTC playback, but its RTSP output
+// is opt-in because a registered producer can exist before it has a readable
+// RTSP path (which otherwise turns a valid camera into a local 404).
+const useGo2rtcProxy = /^true$/i.test(process.env.VIDEO_BRIDGE_USE_GO2RTC_PROXY || '');
+
 function ensureGo2rtc() {
   if (!go2rtcExe || go2rtcChild) return;
   try {
@@ -169,6 +181,21 @@ function buildRtspUrl(config) {
   return url.toString();
 }
 
+// FFmpeg diagnostics are intentionally reduced to fixed, credential-free
+// messages before they are returned to the browser.
+function classifyFfmpegFailure(text) {
+  if (/401|unauthori[sz]ed|authentication failed|invalid credentials/i.test(text)) {
+    return 'RTSP xác thực thất bại. Kiểm tra Username và Password của camera.';
+  }
+  if (/404|not found/i.test(text)) {
+    return 'Camera không có stream RTSP tại đường dẫn đã nhập. Kiểm tra Stream URL.';
+  }
+  if (/timed? ?out|connection refused|could not connect|unreachable|no route/i.test(text)) {
+    return 'Không thể kết nối tới camera qua RTSP. Kiểm tra IP, Port và kết nối mạng.';
+  }
+  return null;
+}
+
 function waitForHls(outputDir, child, timeoutMs = 25000) {
   return new Promise((resolve, reject) => {
     const started = Date.now();
@@ -186,10 +213,10 @@ function waitForHls(outputDir, child, timeoutMs = 25000) {
         resolve();
       } else if (child.exitCode !== null || child.killed || child.spawnFailed) {
         clearInterval(timer);
-        reject(new Error('FFmpeg dừng trước khi nhận được video. Kiểm tra URL, tài khoản, codec và kết nối mạng.'));
+        reject(new Error(child.failureReason || 'FFmpeg dừng trước khi nhận được video. Kiểm tra URL, tài khoản, codec và kết nối mạng.'));
       } else if (Date.now() - started > timeoutMs) {
         clearInterval(timer);
-        reject(new Error('Hết thời gian chờ RTSP (25 giây). Camera không trả về khung hình hợp lệ.'));
+        reject(new Error(child.failureReason || 'Hết thời gian chờ RTSP (25 giây). Camera không trả về khung hình hợp lệ.'));
       }
     }, 250);
   });
@@ -221,14 +248,17 @@ app.post('/api/v1/cameras/test-connection', async (req, res) => {
       throw new Error('Đã có yêu cầu kiểm tra mới hơn.');
     }
     
-    // Đăng ký luồng vào go2rtc trước để làm Proxy trung tâm
+    // Register the source for optional WebRTC playback. FFmpeg reads directly
+    // from the camera by default; go2rtc may report a producer before its RTSP
+    // consumer path is ready, so routing the health check through it is unsafe.
     let webrtcUrl = null;
     try {
       webrtcUrl = await syncGo2rtcStream(id, rtspUrl);
     } catch (e) {}
     
-    // Nếu go2rtc chạy OK, FFmpeg sẽ lấy luồng từ go2rtc thay vì gọi ra camera
-    const proxyRtspUrl = webrtcUrl ? `rtsp://127.0.0.1:8554/${id}` : rtspUrl;
+    const inputUrl = useGo2rtcProxy && webrtcUrl
+      ? `rtsp://127.0.0.1:8554/${id}`
+      : rtspUrl;
 
     const fps = process.env.VIDEO_BRIDGE_FPS;
     const vfFilter = fps ? `setpts=PTS-STARTPTS,fps=${fps}` : 'setpts=PTS-STARTPTS';
@@ -236,10 +266,10 @@ app.post('/api/v1/cameras/test-connection', async (req, res) => {
     mkdirSync(outputDir, { recursive: true });
     child = spawn(ffmpeg, [
       '-hide_banner', '-nostdin', '-loglevel', 'warning', '-nostats', '-progress', 'pipe:1',
-      '-rtsp_transport', 'tcp', '-buffer_size', '10240000', '-analyzeduration', '1000000',
+      '-rtsp_transport', rtspTransport, '-buffer_size', '10240000', '-analyzeduration', '1000000',
       // Use receive time, not the camera's drifting/discontinuous RTP clock.
       '-use_wallclock_as_timestamps', '1', '-fflags', '+genpts+discardcorrupt',
-      '-i', proxyRtspUrl,
+      '-i', inputUrl,
       '-map', '0:v:0', '-an', '-vf', vfFilter, '-fps_mode', 'vfr',
       '-c:v', 'libx264', '-preset', 'veryfast', '-tune', 'zerolatency',
       '-pix_fmt', 'yuv420p', '-g', '15', '-keyint_min', '15', '-sc_threshold', '0',
@@ -270,7 +300,10 @@ app.post('/api/v1/cameras/test-connection', async (req, res) => {
         }
       }
     });
-    child.stderr.on('data', () => {});
+    child.stderr.on('data', data => {
+      const diagnostic = classifyFfmpegFailure(data.toString());
+      if (diagnostic) child.failureReason = diagnostic;
+    });
     const watchdog = setInterval(() => {
       let updatedAt = child.startedAt;
       try { updatedAt = statSync(path.join(outputDir, 'index.m3u8')).mtimeMs; } catch {}
@@ -288,12 +321,13 @@ app.post('/api/v1/cameras/test-connection', async (req, res) => {
     }
     res.json({
       cameraId: id,
+      status: 'CONNECTED',
       streamStatus: 'AVAILABLE',
       apiStatus: 'AVAILABLE',
       playbackUrl: `/streams/${streamId}/index.m3u8`,
       webrtcUrl: webrtcUrl || null,
       latencyMs: Date.now() - started,
-      transport: 'TCP',
+      transport: rtspTransport.toUpperCase(),
       outputCodec: 'H.264',
     });
   } catch (error) {
@@ -352,10 +386,21 @@ app.post('/api/v1/cameras', async (req, res) => {
       const envPath = path.join(bridgeDir, '../.env.ai.local');
       if (existsSync(envPath)) {
         let envContent = readFileSync(envPath, 'utf8');
+        // The AI pipeline must read the same physical camera source that was
+        // just saved. Do not point it at go2rtc's local RTSP server: that
+        // server requires a different transport and can report a producer
+        // before its RTSP consumer is ready. Keep credentials in their own
+        // dotenv fields as required by cameraUrl().
+        const sourceUrl = new URL(rtspUrl);
+        const sourceUsername = decodeURIComponent(sourceUrl.username);
+        const sourcePassword = decodeURIComponent(sourceUrl.password);
+        sourceUrl.username = '';
+        sourceUrl.password = '';
+        const quoteEnv = value => JSON.stringify(String(value ?? ''));
         envContent = envContent.replace(/^AI_CAMERA_ID=.*$/m, `AI_CAMERA_ID=${config.id}`);
-        envContent = envContent.replace(/^AI_RTSP_URL=.*$/m, `AI_RTSP_URL=rtsp://127.0.0.1:8554/${config.id}`);
-        envContent = envContent.replace(/^AI_CAMERA_USERNAME=.*$/m, `AI_CAMERA_USERNAME=`);
-        envContent = envContent.replace(/^AI_CAMERA_PASSWORD=.*$/m, `AI_CAMERA_PASSWORD=`);
+        envContent = envContent.replace(/^AI_RTSP_URL=.*$/m, `AI_RTSP_URL=${sourceUrl.toString()}`);
+        envContent = envContent.replace(/^AI_CAMERA_USERNAME=.*$/m, `AI_CAMERA_USERNAME=${quoteEnv(sourceUsername)}`);
+        envContent = envContent.replace(/^AI_CAMERA_PASSWORD=.*$/m, `AI_CAMERA_PASSWORD=${quoteEnv(sourcePassword)}`);
         writeFileSync(envPath, envContent, 'utf8');
       }
     }

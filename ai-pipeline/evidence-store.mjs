@@ -113,17 +113,13 @@ export function encodeRgbPng(frame, detections = []) {
 }
 
 export class EvidenceStore {
-  constructor(directory, capacity = 100) {
+  constructor(directory, capacity = 100, retainFiles = false) {
     this.directory = directory;
     this.capacity = capacity;
+    this.retainFiles = retainFiles;
     this.ids = [];
     fs.mkdirSync(directory, { recursive: true });
-    // Alert history is memory-only, so files from an earlier backend process are unreachable.
-    for (const name of fs.readdirSync(directory)) {
-      if (UUID.test(path.parse(name).name) && path.extname(name).toLowerCase() === '.png') {
-        try { fs.unlinkSync(path.join(directory, name)); } catch { /* Best-effort stale cleanup. */ }
-      }
-    }
+    // Existing files may belong to persisted alerts or pending Backend deliveries.
   }
 
   prepare(id, frame, detections = []) {
@@ -137,7 +133,7 @@ export class EvidenceStore {
         fs.writeFileSync(this.pathFor(id), png, { flag: 'wx' });
         committed = true;
         this.ids.push(id);
-        while (this.ids.length > this.capacity) this.delete(this.ids[0]);
+        if (!this.retainFiles) while (this.ids.length > this.capacity) this.delete(this.ids[0]);
       },
     };
   }

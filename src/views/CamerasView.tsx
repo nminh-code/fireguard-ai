@@ -40,9 +40,9 @@ export const CamerasView: React.FC = () => {
   }, [searchParams]);
 
   const loadCameras = async () => {
-    const list = await cameraService.getCameras();
-    setCameras(list);
-    setLoading(false);
+    try { setCameras(await cameraService.getCameras()); }
+    catch { setCameras([]); }
+    finally { setLoading(false); }
   };
 
   useEffect(() => {
@@ -407,9 +407,9 @@ export const CamerasView: React.FC = () => {
         <CameraDetailModal
           camera={activeCameraModal}
           onClose={() => setActiveCameraModal(null)}
-          onReconnect={(cam) => {
-            cameraService.setCameraStatus(cam.id, 'ONLINE', 'AI_MONITORING');
-            loadCameras();
+          onReconnect={async (cam) => {
+            try { await cameraService.setCameraStatus(cam.id, 'ONLINE', 'AI_MONITORING'); await loadCameras(); }
+            catch { /* Backend error is displayed globally. */ }
           }}
         />
       )}

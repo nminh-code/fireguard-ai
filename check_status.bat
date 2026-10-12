@@ -1,12 +1,11 @@
 @echo off
 chcp 65001 > nul
-title FireGuard AI - Check AI Status
+title FireGuard AI - System Status Check
 
-echo ===================================================
-echo KIEM TRA TRANG THAI LUONG CAMERA AI (AI PIPELINE STATUS)
-echo ===================================================
-echo.
+set "PROJECT_DIR=%~dp0"
+cd /d "%PROJECT_DIR%"
 
-call npm run ai:frames:status
+powershell -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%scripts\check_services.ps1"
+
 echo.
 pause

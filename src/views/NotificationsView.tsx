@@ -23,9 +23,9 @@ export const NotificationsView: React.FC = () => {
   const [filterType, setFilterType] = useState<'ALL' | 'UNREAD' | 'FIRE'>('ALL');
 
   const loadNotifications = async () => {
-    const list = await notificationService.getNotifications();
-    setNotifications(list);
-    setLoading(false);
+    try { setNotifications(await notificationService.getNotifications()); }
+    catch { setNotifications([]); }
+    finally { setLoading(false); }
   };
 
   useEffect(() => {
@@ -46,15 +46,14 @@ export const NotificationsView: React.FC = () => {
   }, []);
 
   const handleMarkAllRead = async () => {
-    await notificationService.markAllAsRead();
+    try { await notificationService.markAllAsRead(); }
+    catch { return; }
     loadNotifications();
   };
 
   const handleNotificationClick = (notif: Notification) => {
-    notificationService.markAsRead(notif.id);
-    if (notif.incidentId) {
-      navigate(`/incidents/${notif.incidentId}`);
-    }
+    notificationService.markAsRead(notif.id).catch(() => {});
+    navigate('/monitoring');
   };
 
   const filtered = notifications.filter((n) => {
@@ -193,7 +192,7 @@ export const NotificationsView: React.FC = () => {
               {notif.incidentId && (
                 <div className="flex items-center justify-end shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100">
                   <span className="flex items-center gap-1 text-xs font-bold text-red-600 group-hover:text-red-700 group-hover:translate-x-0.5 transition-transform">
-                    <span>Mở sự cố</span>
+                    <span>Xem giám sát</span>
                     <ArrowRight className="h-3.5 w-3.5" />
                   </span>
                 </div>

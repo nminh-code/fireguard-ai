@@ -9,3 +9,5 @@ coverage/
 !.env.ai.example
 video-bridge/streams/
 ai-pipeline/evidence/
+backend/data/evidence/
+.tmp/

@@ -25,9 +25,9 @@ export const IncidentsView: React.FC = () => {
   const [severityFilter, setSeverityFilter] = useState<'ALL' | IncidentSeverity>('ALL');
 
   const loadIncidents = async () => {
-    const list = await incidentService.getIncidents();
-    setIncidents(list);
-    setLoading(false);
+    try { setIncidents(await incidentService.getIncidents()); }
+    catch { setIncidents([]); }
+    finally { setLoading(false); }
   };
 
   useEffect(() => {

@@ -68,17 +68,12 @@ export const RealtimeToast: React.FC = () => {
           </button>
           <button
             onClick={() => {
-              const id = activeAlert.incidentId;
               setActiveAlert(null);
-              if (id) {
-                navigate(`/incidents/${id}`);
-              } else {
-                navigate('/incidents');
-              }
+              navigate('/monitoring');
             }}
             className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold bg-white text-red-700 hover:bg-red-50 rounded-md shadow-sm transition-transform active:scale-95 cursor-pointer"
           >
-            <span>MỞ CHI TIẾT SỰ CỐ NGAY</span>
+            <span>XEM MÀN HÌNH GIÁM SÁT NGAY</span>
             <ArrowRight className="h-3.5 w-3.5" />
           </button>
         </div>

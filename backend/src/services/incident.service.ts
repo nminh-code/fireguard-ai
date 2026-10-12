@@ -10,41 +10,21 @@ import { alertService } from './alert.service.js';
 import { MonitoringAlert } from '../models/alert.model.js';
 
 export class IncidentService {
-  private syncedAlertIds = new Set<string>();
+  private syncing: Promise<void> | null = null;
 
   /**
    * Synchronize incidents and history with real camera detections from monitoring API
    */
   public async syncWithRealAlerts(): Promise<void> {
-    try {
-      const data = await alertService.getAlertHistory(20);
-
-      if (data && Array.isArray(data.alerts) && data.alerts.length > 0) {
-        for (const alert of data.alerts) {
-          // 1. Quick in-memory check
-          if (this.syncedAlertIds.has(alert.id)) {
-            continue;
-          }
-
-          // 2. Persistent storage check (survives backend restarts)
-          const existing = await incidentRepository.findBySourceAlertId(alert.id);
-          if (existing) {
-            this.syncedAlertIds.add(alert.id);
-            continue;
-          }
-
-          // Mark in memory as tracked
-          this.syncedAlertIds.add(alert.id);
-
-          // Only fire detections generate real incidents
-          if (alert.class === 'fire') {
-            await this.createIncidentFromRealAlert(alert);
-          }
-        }
+    if (this.syncing) return this.syncing;
+    this.syncing = (async () => {
+      const data = await alertService.getAlertHistory();
+      for (const alert of [...data.alerts].reverse()) {
+        // Deterministic incident/history IDs make retries safe, including a partial previous write.
+        if (alert.class === 'fire') await this.createIncidentFromRealAlert(alert);
       }
-    } catch {
-      // Upstream alert service not reached, keep existing state
-    }
+    })().finally(() => { this.syncing = null; });
+    return this.syncing;
   }
 
   private async createIncidentFromRealAlert(alert: MonitoringAlert): Promise<Incident | null> {
@@ -59,7 +39,9 @@ export class IncidentService {
 
     // Full Alert ID used to prevent collision
     const incidentId = `inc-${alert.id}`;
-    const incidentCode = `FG-${new Date().getFullYear()}-${alert.sequence.toString().padStart(3, '0')}`;
+    const baseCode = `FG-${new Date().getFullYear()}-${alert.sequence.toString().padStart(3, '0')}`;
+    const collision = await incidentRepository.findIncidentById(baseCode);
+    const incidentCode = collision && collision.sourceAlertId !== alert.id ? `${baseCode}-${alert.id.slice(0, 8)}` : baseCode;
     const timeStr = new Date(alert.timestamp).toLocaleTimeString('vi-VN', { hour12: false });
 
     const newIncident: Incident = {
@@ -233,6 +215,10 @@ export class IncidentService {
       details: `Sự cố ${incident.code} được giải quyết bởi ${resolverName}`,
     });
 
+    // Resolve the active display alarm while retaining the AI alert history,
+    // evidence image, camera configuration and live stream.
+    await alertService.clearActiveAlert(incident.sourceAlertId, incident.cameraId);
+
     return updated;
   }
 
@@ -275,6 +261,8 @@ export class IncidentService {
       status: 'FALSE_ALARM',
       details: `Báo động giả tại ${incident.location}: ${reason}`,
     });
+
+    await alertService.clearActiveAlert(incident.sourceAlertId, incident.cameraId);
 
     return updated;
   }

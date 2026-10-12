@@ -60,7 +60,8 @@ export const ManagementView: React.FC = () => {
   const loadData = async () => {
     const u = await authService.getUsers();
     setUsers(u);
-    setSavedCameras(cameraConnectionService.getSavedCameras());
+    try { setSavedCameras(await cameraConnectionService.refreshSavedCameras()); }
+    catch { setSavedCameras([]); }
   };
 
   useEffect(() => {
@@ -98,7 +99,8 @@ export const ManagementView: React.FC = () => {
       id: assignedId,
     };
 
-    await cameraConnectionService.saveCamera(configToSave);
+    try { await cameraConnectionService.saveCamera(configToSave); }
+    catch { return; }
     setSavedCameras(cameraConnectionService.getSavedCameras());
     setShowAddCameraModal(false);
     setCameraForm({
@@ -115,9 +117,10 @@ export const ManagementView: React.FC = () => {
     });
   };
 
-  const handleDeleteCamera = (id: string, name: string) => {
+  const handleDeleteCamera = async (id: string, name: string) => {
     if (confirm(`Bạn có chắc muốn xóa camera "${name}" khỏi danh sách quản lý?`)) {
-      cameraConnectionService.deleteCamera(id);
+      try { await cameraConnectionService.deleteCamera(id); }
+      catch { return; }
       setSavedCameras(cameraConnectionService.getSavedCameras());
     }
   };

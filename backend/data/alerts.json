@@ -1,0 +1,572 @@
+[
+  {
+    "id": "0b7d7fe7-6a0d-46e5-9ba2-f20b5266ebfe",
+    "cameraId": "cam-test",
+    "sessionId": "6e8501e9-77ac-4129-8fea-fb1c5aa3a8eb",
+    "class": "smoke",
+    "confidence": 0.8041618466377258,
+    "box": [
+      9.419163703918457,
+      3.539149761199951,
+      619.4714965820312,
+      320.0270080566406
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T18:19:06.005Z",
+    "sequence": 9709,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/0b7d7fe7-6a0d-46e5-9ba2-f20b5266ebfe.png"
+  },
+  {
+    "id": "51582570-5665-4f6a-a2cd-27cc47e6811b",
+    "cameraId": "cam-test",
+    "sessionId": "6e8501e9-77ac-4129-8fea-fb1c5aa3a8eb",
+    "class": "smoke",
+    "confidence": 0.7247994542121887,
+    "box": [
+      455.9723205566406,
+      370.5303039550781,
+      632.1486206054688,
+      715.3544921875
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T18:06:34.785Z",
+    "sequence": 6519,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/51582570-5665-4f6a-a2cd-27cc47e6811b.png"
+  },
+  {
+    "id": "31bec4c5-0e36-421c-9220-696844a0e815",
+    "cameraId": "cam-test",
+    "sessionId": "6e8501e9-77ac-4129-8fea-fb1c5aa3a8eb",
+    "class": "smoke",
+    "confidence": 0.6213896870613098,
+    "box": [
+      13.013423919677734,
+      0,
+      621.5897827148438,
+      314.07708740234375
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T18:05:31.137Z",
+    "sequence": 6260,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/31bec4c5-0e36-421c-9220-696844a0e815.png"
+  },
+  {
+    "id": "1accc342-7a5d-430e-a90a-bc59c8e21078",
+    "cameraId": "cam-test",
+    "sessionId": "6e8501e9-77ac-4129-8fea-fb1c5aa3a8eb",
+    "class": "smoke",
+    "confidence": 0.7880228161811829,
+    "box": [
+      198.9377899169922,
+      367.8048095703125,
+      630.1640625,
+      656.8848266601562
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T17:59:20.642Z",
+    "sequence": 4652,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/1accc342-7a5d-430e-a90a-bc59c8e21078.png"
+  },
+  {
+    "id": "026cf149-bec9-44c5-9cad-61cc7de80924",
+    "cameraId": "cam-test",
+    "sessionId": "6e8501e9-77ac-4129-8fea-fb1c5aa3a8eb",
+    "class": "smoke",
+    "confidence": 0.7096532583236694,
+    "box": [
+      8.826319694519043,
+      3.8079566955566406,
+      618.9255981445312,
+      323.3285827636719
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T17:58:47.955Z",
+    "sequence": 4512,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/026cf149-bec9-44c5-9cad-61cc7de80924.png"
+  },
+  {
+    "id": "d6c33dbc-3375-4a93-a68e-4141dbc9549c",
+    "cameraId": "cam-test",
+    "sessionId": "6e8501e9-77ac-4129-8fea-fb1c5aa3a8eb",
+    "class": "fire",
+    "confidence": 0.5607399344444275,
+    "box": [
+      255.22409057617188,
+      468.9756774902344,
+      493.3141784667969,
+      720
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T17:41:49.372Z",
+    "sequence": 91,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/d6c33dbc-3375-4a93-a68e-4141dbc9549c.png"
+  },
+  {
+    "id": "aabe0a52-7e08-4f86-885a-210911ea7093",
+    "cameraId": "cam-test",
+    "sessionId": "6e8501e9-77ac-4129-8fea-fb1c5aa3a8eb",
+    "class": "smoke",
+    "confidence": 0.632667601108551,
+    "box": [
+      12.780502319335938,
+      3.200394868850708,
+      621.3992309570312,
+      313.6099548339844
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T18:20:33.400Z",
+    "sequence": 10091,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/aabe0a52-7e08-4f86-885a-210911ea7093.png"
+  },
+  {
+    "id": "5cf55e4f-b66e-420b-bff5-15b90337e11e",
+    "cameraId": "cam-test",
+    "sessionId": "6e8501e9-77ac-4129-8fea-fb1c5aa3a8eb",
+    "class": "smoke",
+    "confidence": 0.6909093260765076,
+    "box": [
+      10.603477478027344,
+      2.8389506340026855,
+      619.5420532226562,
+      316.1015930175781
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T18:21:05.544Z",
+    "sequence": 10205,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/5cf55e4f-b66e-420b-bff5-15b90337e11e.png"
+  },
+  {
+    "id": "df48b957-a0f7-41a1-9ea9-ddfed5d8cca6",
+    "cameraId": "cam-test",
+    "sessionId": "6e8501e9-77ac-4129-8fea-fb1c5aa3a8eb",
+    "class": "smoke",
+    "confidence": 0.5945097208023071,
+    "box": [
+      347.2030029296875,
+      0,
+      631.2175903320312,
+      333.8641052246094
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T18:22:05.198Z",
+    "sequence": 10464,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/df48b957-a0f7-41a1-9ea9-ddfed5d8cca6.png"
+  },
+  {
+    "id": "40cf09f5-a2e8-4394-bb4b-6edd19e0ed66",
+    "cameraId": "cam-test",
+    "sessionId": "6e8501e9-77ac-4129-8fea-fb1c5aa3a8eb",
+    "class": "smoke",
+    "confidence": 0.5449715256690979,
+    "box": [
+      12.6450834274292,
+      1.3484821319580078,
+      619.5296630859375,
+      320.6903381347656
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T18:23:08.117Z",
+    "sequence": 10718,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/40cf09f5-a2e8-4394-bb4b-6edd19e0ed66.png"
+  },
+  {
+    "id": "b998f669-bb3f-4225-a46b-5b9d7b52b72d",
+    "cameraId": "cam-test",
+    "sessionId": "6e8501e9-77ac-4129-8fea-fb1c5aa3a8eb",
+    "class": "smoke",
+    "confidence": 0.5248400568962097,
+    "box": [
+      8.978397369384766,
+      0.22205516695976257,
+      616.5950927734375,
+      307.61456298828125
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T18:23:57.605Z",
+    "sequence": 10925,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/b998f669-bb3f-4225-a46b-5b9d7b52b72d.png"
+  },
+  {
+    "id": "73e4a00e-e01c-4871-826e-b9add29c59a5",
+    "cameraId": "cam-test",
+    "sessionId": "6e8501e9-77ac-4129-8fea-fb1c5aa3a8eb",
+    "class": "smoke",
+    "confidence": 0.6979948282241821,
+    "box": [
+      8.238849639892578,
+      2.984698534011841,
+      619.999267578125,
+      325.9867248535156
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T18:25:10.644Z",
+    "sequence": 11239,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/73e4a00e-e01c-4871-826e-b9add29c59a5.png"
+  },
+  {
+    "id": "37e203a4-81af-4d3f-ab45-b26df7973dcf",
+    "cameraId": "cam-test",
+    "sessionId": "6e8501e9-77ac-4129-8fea-fb1c5aa3a8eb",
+    "class": "smoke",
+    "confidence": 0.6043678522109985,
+    "box": [
+      9.814850807189941,
+      0.7588029503822327,
+      620.5590209960938,
+      315.52783203125
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T18:25:40.760Z",
+    "sequence": 11371,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/37e203a4-81af-4d3f-ab45-b26df7973dcf.png"
+  },
+  {
+    "id": "3d762ac5-3403-4699-881b-d12448da9636",
+    "cameraId": "cam-test",
+    "sessionId": "6e8501e9-77ac-4129-8fea-fb1c5aa3a8eb",
+    "class": "smoke",
+    "confidence": 0.7535640001296997,
+    "box": [
+      11.544181823730469,
+      0.5579143762588501,
+      619.1655883789062,
+      330.36944580078125
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T18:26:12.889Z",
+    "sequence": 11493,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/3d762ac5-3403-4699-881b-d12448da9636.png"
+  },
+  {
+    "id": "a2b57ef1-54d0-4522-810b-b00ca91da2ff",
+    "cameraId": "cam-test",
+    "sessionId": "6e8501e9-77ac-4129-8fea-fb1c5aa3a8eb",
+    "class": "smoke",
+    "confidence": 0.5616891980171204,
+    "box": [
+      13.268916130065918,
+      0.8929376602172852,
+      619.4541625976562,
+      338.28411865234375
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T18:26:43.055Z",
+    "sequence": 11625,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/a2b57ef1-54d0-4522-810b-b00ca91da2ff.png"
+  },
+  {
+    "id": "0e13ebfc-d9f9-459f-aeee-9c459828249b",
+    "cameraId": "cam-test",
+    "sessionId": "6e8501e9-77ac-4129-8fea-fb1c5aa3a8eb",
+    "class": "smoke",
+    "confidence": 0.5767691135406494,
+    "box": [
+      9.363933563232422,
+      4.006068706512451,
+      620.263916015625,
+      317.20733642578125
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T18:33:19.968Z",
+    "sequence": 13316,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/0e13ebfc-d9f9-459f-aeee-9c459828249b.png"
+  },
+  {
+    "id": "0f5bd562-93d1-42ec-ab9f-43414d4b960e",
+    "cameraId": "cam-test",
+    "sessionId": "6e8501e9-77ac-4129-8fea-fb1c5aa3a8eb",
+    "class": "smoke",
+    "confidence": 0.7675061225891113,
+    "box": [
+      14.267060279846191,
+      271.8118896484375,
+      621.32958984375,
+      720
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T18:35:00.600Z",
+    "sequence": 13741,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/0f5bd562-93d1-42ec-ab9f-43414d4b960e.png"
+  },
+  {
+    "id": "85aa4088-b045-422a-8bf6-c0e2afb68a90",
+    "cameraId": "cam-test",
+    "sessionId": "6e8501e9-77ac-4129-8fea-fb1c5aa3a8eb",
+    "class": "smoke",
+    "confidence": 0.5844202637672424,
+    "box": [
+      16.389331817626953,
+      44.27203369140625,
+      623.6553344726562,
+      646.7088623046875
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T18:39:40.806Z",
+    "sequence": 14900,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/85aa4088-b045-422a-8bf6-c0e2afb68a90.png"
+  },
+  {
+    "id": "0ffe4142-253d-4777-a7fe-7fb833761dc3",
+    "cameraId": "cam-test",
+    "sessionId": "e4f2b0b6-73d3-4f64-a626-f26c1e38c826",
+    "class": "smoke",
+    "confidence": 0.6781128644943237,
+    "box": [
+      7.979178428649902,
+      0,
+      620.031494140625,
+      225.3210906982422
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T18:49:36.933Z",
+    "sequence": 58,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/0ffe4142-253d-4777-a7fe-7fb833761dc3.png"
+  },
+  {
+    "id": "b84dd177-fbbf-4dd7-8f33-db9e60865b56",
+    "cameraId": "cam-test",
+    "sessionId": "3878cba8-0c0a-4db5-933b-2d9b3e9bd7fd",
+    "class": "smoke",
+    "confidence": 0.7283268570899963,
+    "box": [
+      267.4873352050781,
+      364.7737731933594,
+      626.7588500976562,
+      624.2988891601562
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T19:04:55.899Z",
+    "sequence": 996,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/b84dd177-fbbf-4dd7-8f33-db9e60865b56.png"
+  },
+  {
+    "id": "4dbc49b3-517e-440c-8007-f6fb90d0df32",
+    "cameraId": "cam-test",
+    "sessionId": "3878cba8-0c0a-4db5-933b-2d9b3e9bd7fd",
+    "class": "smoke",
+    "confidence": 0.7504830360412598,
+    "box": [
+      11.389358520507812,
+      0,
+      617.8466796875,
+      181.6225128173828
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T19:05:39.790Z",
+    "sequence": 1157,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/4dbc49b3-517e-440c-8007-f6fb90d0df32.png"
+  },
+  {
+    "id": "15ba5ea4-5c21-499c-b01b-d304815bd3a8",
+    "cameraId": "cam-test",
+    "sessionId": "3878cba8-0c0a-4db5-933b-2d9b3e9bd7fd",
+    "class": "smoke",
+    "confidence": 0.6071568727493286,
+    "box": [
+      330.1527099609375,
+      0,
+      630.8057250976562,
+      333.86407470703125
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T19:06:13.118Z",
+    "sequence": 1301,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/15ba5ea4-5c21-499c-b01b-d304815bd3a8.png"
+  },
+  {
+    "id": "59343a2d-9222-4125-bd63-46ac6a16613f",
+    "cameraId": "cam-test",
+    "sessionId": "e9021ccd-32ee-4a77-9b7b-17f4fc40f90e",
+    "class": "smoke",
+    "confidence": 0.686469554901123,
+    "box": [
+      9.562224388122559,
+      2.0838496685028076,
+      619.3349609375,
+      323.1684875488281
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T19:10:52.369Z",
+    "sequence": 113,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/59343a2d-9222-4125-bd63-46ac6a16613f.png"
+  },
+  {
+    "id": "d9eba3af-b7ac-4882-ac74-9b9d9dfcffbd",
+    "cameraId": "cam-test",
+    "sessionId": "e9021ccd-32ee-4a77-9b7b-17f4fc40f90e",
+    "class": "smoke",
+    "confidence": 0.5110448002815247,
+    "box": [
+      11.306722640991211,
+      0.8215563893318176,
+      621.35791015625,
+      293.63330078125
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T19:11:29.653Z",
+    "sequence": 275,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/d9eba3af-b7ac-4882-ac74-9b9d9dfcffbd.png"
+  },
+  {
+    "id": "21470207-17f0-4d57-960e-fa00a03ba2ab",
+    "cameraId": "cam-test",
+    "sessionId": "e9021ccd-32ee-4a77-9b7b-17f4fc40f90e",
+    "class": "smoke",
+    "confidence": 0.5541123747825623,
+    "box": [
+      6.436913013458252,
+      21.250185012817383,
+      619.66015625,
+      316.592041015625
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T19:13:52.340Z",
+    "sequence": 892,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/21470207-17f0-4d57-960e-fa00a03ba2ab.png"
+  },
+  {
+    "id": "687972f3-c368-46c8-8656-d5aba037e3a6",
+    "cameraId": "cam-test",
+    "sessionId": "e9021ccd-32ee-4a77-9b7b-17f4fc40f90e",
+    "class": "smoke",
+    "confidence": 0.6609426736831665,
+    "box": [
+      3.3242597579956055,
+      2.171083450317383,
+      619.6680297851562,
+      315.4462585449219
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T19:14:22.441Z",
+    "sequence": 1022,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/687972f3-c368-46c8-8656-d5aba037e3a6.png"
+  },
+  {
+    "id": "85d3dcf2-22d9-4ffa-8ac5-c588b149b5d9",
+    "cameraId": "cam-test",
+    "sessionId": "e9021ccd-32ee-4a77-9b7b-17f4fc40f90e",
+    "class": "fire",
+    "confidence": 0.7781955599784851,
+    "box": [
+      309.7186584472656,
+      367.151123046875,
+      478.34136962890625,
+      615.51171875
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T19:14:36.802Z",
+    "sequence": 1083,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/85d3dcf2-22d9-4ffa-8ac5-c588b149b5d9.png"
+  },
+  {
+    "id": "9e5b5fb2-26d8-4e22-9cda-70cd337bc23b",
+    "cameraId": "cam-test",
+    "sessionId": "e9021ccd-32ee-4a77-9b7b-17f4fc40f90e",
+    "class": "fire",
+    "confidence": 0.6502525210380554,
+    "box": [
+      283.6837463378906,
+      399.3170166015625,
+      445.8442687988281,
+      674.0927734375
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T19:15:07.130Z",
+    "sequence": 1214,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/9e5b5fb2-26d8-4e22-9cda-70cd337bc23b.png"
+  },
+  {
+    "id": "bb587238-75fd-4aba-83ea-800a4195f91f",
+    "cameraId": "cam-test",
+    "sessionId": "e9021ccd-32ee-4a77-9b7b-17f4fc40f90e",
+    "class": "fire",
+    "confidence": 0.5330711007118225,
+    "box": [
+      310.9743347167969,
+      0,
+      534.5082397460938,
+      112.4408950805664
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T19:16:30.035Z",
+    "sequence": 1567,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/bb587238-75fd-4aba-83ea-800a4195f91f.png"
+  },
+  {
+    "id": "714b8c82-42ad-430c-ab1e-7927706e08e5",
+    "cameraId": "cam-test",
+    "sessionId": "e9021ccd-32ee-4a77-9b7b-17f4fc40f90e",
+    "class": "fire",
+    "confidence": 0.6841431856155396,
+    "box": [
+      268.1019287109375,
+      370.8211669921875,
+      539.07421875,
+      720
+    ],
+    "boxFormat": "xyxy",
+    "timestamp": "2026-10-12T19:17:00.274Z",
+    "sequence": 1697,
+    "width": 640,
+    "height": 720,
+    "evidenceUrl": "/api/v1/evidence/714b8c82-42ad-430c-ab1e-7927706e08e5.png"
+  }
+]

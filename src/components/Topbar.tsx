@@ -41,11 +41,13 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, on
     : 'VD';
 
   const loadData = async () => {
+    try {
     const s = await incidentService.getDashboardStats();
     setStats(s);
     const notifs = await notificationService.getNotifications();
     setNotifications(notifs);
     setUnreadCount(notifs.filter((n) => !n.read).length);
+    } catch { setStats(null); setNotifications([]); setUnreadCount(0); }
   };
 
   useEffect(() => {
@@ -66,8 +68,9 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, on
   }, []);
 
   const handleResolveLatest = async () => {
+    try { await incidentService.resolveLatestActiveIncident(currentUser.name); }
+    catch { return; }
     soundManager.playSuccessTone();
-    incidentService.resolveLatestActiveIncident(currentUser.name);
     await loadData();
   };
 
@@ -105,32 +108,11 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, on
       <div className="flex items-center gap-3">
         {/* System Status Pill */}
         <div
-          className={`hidden sm:inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold tracking-wide ${
-            hasActiveFire
-              ? 'bg-red-50 text-red-700 border-red-200'
-              : 'bg-emerald-50/80 text-emerald-700 border-emerald-200'
-          }`}
+          className="hidden sm:inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold tracking-wide bg-emerald-50/80 text-emerald-700 border-emerald-200"
         >
-          <span
-            className={`h-2 w-2 rounded-full ${
-              hasActiveFire ? 'bg-red-600 animate-pulse' : 'bg-emerald-500'
-            }`}
-          />
-          <span>{hasActiveFire ? 'CẦN XỬ LÝ SỰ CỐ' : 'HỆ THỐNG HOẠT ĐỘNG TỐT'}</span>
+          <span className="h-2 w-2 rounded-full bg-emerald-500" />
+          <span>HỆ THỐNG HOẠT ĐỘNG TỐT</span>
         </div>
-
-        {/* Resolve button when active fire exists */}
-        {hasActiveFire && (
-          <button
-            onClick={handleResolveLatest}
-            className="flex items-center gap-1 rounded-md bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white px-2.5 py-1.5 text-xs font-semibold shadow-xs transition-all cursor-pointer"
-            title="Đánh dấu giải quyết sự cố cháy"
-            id="btn-resolve-fire"
-          >
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">KHẮC PHỤC SỰ CỐ</span>
-          </button>
-        )}
 
         {/* Notifications Dropdown */}
         <div className="relative">
@@ -176,7 +158,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onToggleSidebar, currentUser, on
                       onClick={() => {
                         notificationService.markAsRead(n.id);
                         setShowNotifMenu(false);
-                        navigate(n.incidentId ? `/incidents/${n.incidentId}` : '/notifications');
+                        navigate('/notifications');
                       }}
                       className="p-2.5 rounded-lg border border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"
                     >

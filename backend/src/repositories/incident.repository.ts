@@ -6,7 +6,7 @@ import { INITIAL_INCIDENT, INITIAL_HISTORY_EVENTS } from '../data/seedIncidents.
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DATA_DIR = path.resolve(__dirname, '../../data');
+const DATA_DIR = process.env.FAVIS_DATA_DIR || path.resolve(__dirname, '../../data');
 const INCIDENTS_FILE = path.join(DATA_DIR, 'incidents.json');
 const HISTORY_FILE = path.join(DATA_DIR, 'history-events.json');
 
@@ -43,8 +43,7 @@ export class IncidentRepository {
       }
     } catch (err) {
       console.error('[IncidentRepository] Error initializing data files:', err);
-      this.incidents = [{ ...INITIAL_INCIDENT }];
-      this.historyEvents = [...INITIAL_HISTORY_EVENTS];
+      throw err;
     }
   }
 
@@ -55,6 +54,7 @@ export class IncidentRepository {
       fs.renameSync(tempPath, filePath);
     } catch (err) {
       console.error(`[IncidentRepository] Error saving to ${filePath}:`, err);
+      throw err;
     }
   }
 
@@ -88,8 +88,9 @@ export class IncidentRepository {
       return { ...existing };
     }
 
-    this.incidents.unshift({ ...incident });
-    this.saveToFile(INCIDENTS_FILE, this.incidents);
+    const next = [{ ...incident }, ...this.incidents];
+    this.saveToFile(INCIDENTS_FILE, next);
+    this.incidents = next;
     return { ...incident };
   }
 
@@ -99,11 +100,13 @@ export class IncidentRepository {
     );
     if (idx === -1) return null;
 
-    this.incidents[idx] = {
+    const next = [...this.incidents];
+    next[idx] = {
       ...this.incidents[idx],
       ...updates,
     };
-    this.saveToFile(INCIDENTS_FILE, this.incidents);
+    this.saveToFile(INCIDENTS_FILE, next);
+    this.incidents = next;
     return { ...this.incidents[idx] };
   }
 
@@ -120,8 +123,9 @@ export class IncidentRepository {
       return { ...existing };
     }
 
-    this.historyEvents.unshift({ ...event });
-    this.saveToFile(HISTORY_FILE, this.historyEvents);
+    const next = [{ ...event }, ...this.historyEvents];
+    this.saveToFile(HISTORY_FILE, next);
+    this.historyEvents = next;
     return { ...event };
   }
 }
