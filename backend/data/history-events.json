@@ -1,5 +1,60 @@
 [
   {
+    "id": "evt-f6783a88-f5e9-402d-9ec9-81870f696b39",
+    "eventType": "FIRE_CONFIRMED",
+    "cameraId": "cam-test",
+    "cameraCode": "cam-test",
+    "location": "camera test (Other • 192.168.1.8)",
+    "severity": "MEDIUM",
+    "timestamp": "14:21:15",
+    "status": "ACTIVE",
+    "details": "Phát hiện FIRE (Độ tin cậy: 61.3%)"
+  },
+  {
+    "id": "evt-be423e6f-a924-4b29-a8a7-0132893e8ede",
+    "eventType": "FIRE_CONFIRMED",
+    "cameraId": "cam-test",
+    "cameraCode": "cam-test",
+    "location": "camera test (Other • 192.168.1.8)",
+    "severity": "MEDIUM",
+    "timestamp": "14:20:45",
+    "status": "ACTIVE",
+    "details": "Phát hiện FIRE (Độ tin cậy: 60.4%)"
+  },
+  {
+    "id": "evt-db5c5035-3103-4453-8bf7-4b7430458745",
+    "eventType": "FIRE_CONFIRMED",
+    "cameraId": "cam-test",
+    "cameraCode": "cam-test",
+    "location": "camera test (Other • 192.168.1.8)",
+    "severity": "MEDIUM",
+    "timestamp": "14:20:15",
+    "status": "ACTIVE",
+    "details": "Phát hiện FIRE (Độ tin cậy: 63.2%)"
+  },
+  {
+    "id": "evt-6f6a81c7-6f85-47d7-a0d5-12186a594734",
+    "eventType": "FIRE_CONFIRMED",
+    "cameraId": "cam-test",
+    "cameraCode": "cam-test",
+    "location": "camera test (Other • 192.168.1.8)",
+    "severity": "MEDIUM",
+    "timestamp": "14:19:43",
+    "status": "ACTIVE",
+    "details": "Phát hiện FIRE (Độ tin cậy: 56.9%)"
+  },
+  {
+    "id": "evt-bfe457e0-fc5f-4abc-9f44-be9dd368095f",
+    "eventType": "FIRE_CONFIRMED",
+    "cameraId": "cam-test",
+    "cameraCode": "cam-test",
+    "location": "camera test (Other • 192.168.1.8)",
+    "severity": "MEDIUM",
+    "timestamp": "14:19:13",
+    "status": "ACTIVE",
+    "details": "Phát hiện FIRE (Độ tin cậy: 51.3%)"
+  },
+  {
     "id": "evt-714b8c82-42ad-430c-ab1e-7927706e08e5",
     "eventType": "FIRE_CONFIRMED",
     "cameraId": "cam-test",

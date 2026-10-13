@@ -1,5 +1,140 @@
 [
   {
+    "id": "inc-f6783a88-f5e9-402d-9ec9-81870f696b39",
+    "sourceAlertId": "f6783a88-f5e9-402d-9ec9-81870f696b39",
+    "code": "FG-2026-2027",
+    "cameraId": "cam-test",
+    "cameraCode": "cam-test",
+    "siteId": "site-real",
+    "location": "camera test (Other • 192.168.1.8)",
+    "eventType": "FIRE_CONFIRMED",
+    "fireConfidence": 61,
+    "smokeConfidence": 0,
+    "severity": "MEDIUM",
+    "status": "ACTIVE",
+    "detectedAt": "14:21:15",
+    "snapshotUrl": "/api/v1/evidence/f6783a88-f5e9-402d-9ec9-81870f696b39.png",
+    "timeline": [
+      {
+        "id": "tl-1791876077288-1",
+        "time": "14:21:15",
+        "title": "AI phát hiện FIRE từ camera camera test",
+        "description": "Mô hình AI phát hiện ngọn lửa với độ tin cậy 61.3%. Sequence #2027.",
+        "type": "DETECTED",
+        "actor": "Favis Edge AI Engine"
+      }
+    ],
+    "notes": "Phát hiện tự động bởi hệ thống AI Vision trên camera camera test."
+  },
+  {
+    "id": "inc-be423e6f-a924-4b29-a8a7-0132893e8ede",
+    "sourceAlertId": "be423e6f-a924-4b29-a8a7-0132893e8ede",
+    "code": "FG-2026-1897",
+    "cameraId": "cam-test",
+    "cameraCode": "cam-test",
+    "siteId": "site-real",
+    "location": "camera test (Other • 192.168.1.8)",
+    "eventType": "FIRE_CONFIRMED",
+    "fireConfidence": 60,
+    "smokeConfidence": 0,
+    "severity": "MEDIUM",
+    "status": "ACTIVE",
+    "detectedAt": "14:20:45",
+    "snapshotUrl": "/api/v1/evidence/be423e6f-a924-4b29-a8a7-0132893e8ede.png",
+    "timeline": [
+      {
+        "id": "tl-1791876046792-1",
+        "time": "14:20:45",
+        "title": "AI phát hiện FIRE từ camera camera test",
+        "description": "Mô hình AI phát hiện ngọn lửa với độ tin cậy 60.4%. Sequence #1897.",
+        "type": "DETECTED",
+        "actor": "Favis Edge AI Engine"
+      }
+    ],
+    "notes": "Phát hiện tự động bởi hệ thống AI Vision trên camera camera test."
+  },
+  {
+    "id": "inc-db5c5035-3103-4453-8bf7-4b7430458745",
+    "sourceAlertId": "db5c5035-3103-4453-8bf7-4b7430458745",
+    "code": "FG-2026-1784",
+    "cameraId": "cam-test",
+    "cameraCode": "cam-test",
+    "siteId": "site-real",
+    "location": "camera test (Other • 192.168.1.8)",
+    "eventType": "FIRE_CONFIRMED",
+    "fireConfidence": 63,
+    "smokeConfidence": 0,
+    "severity": "MEDIUM",
+    "status": "ACTIVE",
+    "detectedAt": "14:20:15",
+    "snapshotUrl": "/api/v1/evidence/db5c5035-3103-4453-8bf7-4b7430458745.png",
+    "timeline": [
+      {
+        "id": "tl-1791876016321-1",
+        "time": "14:20:15",
+        "title": "AI phát hiện FIRE từ camera camera test",
+        "description": "Mô hình AI phát hiện ngọn lửa với độ tin cậy 63.2%. Sequence #1784.",
+        "type": "DETECTED",
+        "actor": "Favis Edge AI Engine"
+      }
+    ],
+    "notes": "Phát hiện tự động bởi hệ thống AI Vision trên camera camera test."
+  },
+  {
+    "id": "inc-6f6a81c7-6f85-47d7-a0d5-12186a594734",
+    "sourceAlertId": "6f6a81c7-6f85-47d7-a0d5-12186a594734",
+    "code": "FG-2026-1672",
+    "cameraId": "cam-test",
+    "cameraCode": "cam-test",
+    "siteId": "site-real",
+    "location": "camera test (Other • 192.168.1.8)",
+    "eventType": "FIRE_CONFIRMED",
+    "fireConfidence": 57,
+    "smokeConfidence": 0,
+    "severity": "MEDIUM",
+    "status": "ACTIVE",
+    "detectedAt": "14:19:43",
+    "snapshotUrl": "/api/v1/evidence/6f6a81c7-6f85-47d7-a0d5-12186a594734.png",
+    "timeline": [
+      {
+        "id": "tl-1791875984796-1",
+        "time": "14:19:43",
+        "title": "AI phát hiện FIRE từ camera camera test",
+        "description": "Mô hình AI phát hiện ngọn lửa với độ tin cậy 56.9%. Sequence #1672.",
+        "type": "DETECTED",
+        "actor": "Favis Edge AI Engine"
+      }
+    ],
+    "notes": "Phát hiện tự động bởi hệ thống AI Vision trên camera camera test."
+  },
+  {
+    "id": "inc-bfe457e0-fc5f-4abc-9f44-be9dd368095f",
+    "sourceAlertId": "bfe457e0-fc5f-4abc-9f44-be9dd368095f",
+    "code": "FG-2026-1546",
+    "cameraId": "cam-test",
+    "cameraCode": "cam-test",
+    "siteId": "site-real",
+    "location": "camera test (Other • 192.168.1.8)",
+    "eventType": "FIRE_CONFIRMED",
+    "fireConfidence": 51,
+    "smokeConfidence": 0,
+    "severity": "MEDIUM",
+    "status": "ACTIVE",
+    "detectedAt": "14:19:13",
+    "snapshotUrl": "/api/v1/evidence/bfe457e0-fc5f-4abc-9f44-be9dd368095f.png",
+    "timeline": [
+      {
+        "id": "tl-1791875954283-1",
+        "time": "14:19:13",
+        "title": "AI phát hiện FIRE từ camera camera test",
+        "description": "Mô hình AI phát hiện ngọn lửa với độ tin cậy 51.3%. Sequence #1546.",
+        "type": "DETECTED",
+        "actor": "Favis Edge AI Engine"
+      }
+    ],
+    "notes": "Phát hiện tự động bởi hệ thống AI Vision trên camera camera test."
+  },
+  {
     "id": "inc-714b8c82-42ad-430c-ab1e-7927706e08e5",
     "sourceAlertId": "714b8c82-42ad-430c-ab1e-7927706e08e5",
     "code": "FG-2026-1697",
