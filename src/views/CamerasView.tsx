@@ -42,6 +42,7 @@ export const CamerasView: React.FC = () => {
   const loadCameras = async () => {
     const list = await cameraService.getCameras();
     setCameras(list);
+    setActiveCameraModal(current => current ? list.find(camera => camera.id === current.id) ?? null : null);
     setLoading(false);
   };
 

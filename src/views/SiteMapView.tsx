@@ -10,6 +10,7 @@ import cam08FireImg from '../assets/cam08_fire_thumbnail.png';
 import {
   MapPin,
   Flame,
+  CheckCircle2,
   RotateCw,
   Plus,
   Minus,
@@ -39,6 +40,7 @@ export const SiteMapView: React.FC = () => {
       incidentService.getIncidents(),
     ]);
     setCameras(cams);
+    setActiveCameraModal(current => current ? cams.find(camera => camera.id === current.id) ?? null : null);
     const active = incs.find((i) => i.status === 'ACTIVE' || i.status === 'RESPONDING');
     setActiveIncident(active || null);
   };
@@ -65,50 +67,56 @@ export const SiteMapView: React.FC = () => {
     };
   }, []);
 
-  const totalCameras = 24;
-  const onlineCount = 23;
-  const fireCount = 1;
-  const offlineCount = 0;
+  const totalCameras = cameras.length;
+  const onlineCount = cameras.filter(camera => camera.status !== 'OFFLINE').length;
+  const fireCount = cameras.filter(camera => camera.status === 'FIRE').length;
+  const warningCount = cameras.filter(camera => camera.status === 'WARNING').length;
+  const offlineCount = cameras.filter(camera => camera.status === 'OFFLINE').length;
 
   // Zone pins configuration matching the 3D map building positions accurately
-  const cameraPins = [
-    // Kho nguyên liệu (Top-Left building with solar panels & water tanks, Fire hazard at CAM-08)
-    { code: 'CAM-01', x: 29, y: 19, status: 'ONLINE', zone: 'Kho nguyên liệu' },
-    { code: 'CAM-02', x: 12, y: 28, status: 'ONLINE', zone: 'Kho nguyên liệu' },
-    { code: 'CAM-07', x: 20, y: 32, status: 'ONLINE', zone: 'Kho nguyên liệu' },
-    { code: 'CAM-08', x: 24, y: 22, status: 'FIRE', zone: 'Kho nguyên liệu' },
+  const cameraPinPositions = [
+    // Kho nguyên liệu (Top-Left building with solar panels & water tanks)
+    { code: 'CAM-01', x: 29, y: 19 },
+    { code: 'CAM-02', x: 12, y: 28 },
+    { code: 'CAM-07', x: 20, y: 32 },
+    { code: 'CAM-08', x: 24, y: 22 },
 
     // Xưởng sản xuất 1 (Main large production hall in center left)
-    { code: 'CAM-03', x: 35, y: 37, status: 'ONLINE', zone: 'Xưởng sản xuất 1' },
-    { code: 'CAM-04', x: 42, y: 40, status: 'ONLINE', zone: 'Xưởng sản xuất 1' },
-    { code: 'CAM-09', x: 44, y: 46, status: 'ONLINE', zone: 'Xưởng sản xuất 1' },
-    { code: 'CAM-10', x: 25, y: 47, status: 'ONLINE', zone: 'Xưởng sản xuất 1' },
-    { code: 'CAM-11', x: 33, y: 48, status: 'ONLINE', zone: 'Xưởng sản xuất 1' },
+    { code: 'CAM-03', x: 35, y: 37 },
+    { code: 'CAM-04', x: 42, y: 40 },
+    { code: 'CAM-09', x: 44, y: 46 },
+    { code: 'CAM-10', x: 25, y: 47 },
+    { code: 'CAM-11', x: 33, y: 48 },
 
     // Xưởng sản xuất 2 (Upper middle building behind main hall)
-    { code: 'CAM-05', x: 47, y: 30, status: 'ONLINE', zone: 'Xưởng sản xuất 2' },
-    { code: 'CAM-06', x: 57, y: 32, status: 'ONLINE', zone: 'Xưởng sản xuất 2' },
-    { code: 'CAM-19', x: 53, y: 35, status: 'ONLINE', zone: 'Xưởng sản xuất 2' },
+    { code: 'CAM-05', x: 47, y: 30 },
+    { code: 'CAM-06', x: 57, y: 32 },
+    { code: 'CAM-19', x: 53, y: 35 },
 
     // Kho thành phẩm (Center-right building with solar roof)
-    { code: 'CAM-15', x: 56, y: 48, status: 'ONLINE', zone: 'Kho thành phẩm' },
-    { code: 'CAM-16', x: 64, y: 50, status: 'ONLINE', zone: 'Kho thành phẩm' },
+    { code: 'CAM-15', x: 56, y: 48 },
+    { code: 'CAM-16', x: 64, y: 50 },
 
     // Văn phòng (Multi-story glass building at bottom right)
-    { code: 'CAM-14', x: 64, y: 70, status: 'ONLINE', zone: 'Văn phòng' },
+    { code: 'CAM-14', x: 64, y: 70 },
 
     // Khu kỹ thuật (Heavy industrial piping & chimneys plant on right)
-    { code: 'CAM-12', x: 76, y: 44, status: 'WARNING', zone: 'Khu kỹ thuật' },
+    { code: 'CAM-12', x: 76, y: 44 },
 
     // Bãi xe (Truck parking lot at top right)
-    { code: 'CAM-13', x: 83, y: 22, status: 'ONLINE', zone: 'Bãi xe' },
+    { code: 'CAM-13', x: 83, y: 22 },
 
     // Cổng chính (Security entrance gate at bottom left)
-    { code: 'CAM-17', x: 32, y: 77, status: 'ONLINE', zone: 'Cổng chính' },
+    { code: 'CAM-17', x: 32, y: 77 },
 
     // Trạm điện (High-voltage power substation fenced grid at top center)
-    { code: 'CAM-18', x: 49, y: 13, status: 'WARNING', zone: 'Trạm điện' },
+    { code: 'CAM-18', x: 49, y: 13 },
   ];
+
+  const cameraPins = cameraPinPositions.flatMap(pin => {
+    const camera = cameras.find(camera => camera.code === pin.code);
+    return camera ? [{ ...pin, status: camera.status }] : [];
+  });
 
   // Zone text labels accurately placed above each facility
   const zoneLabels = [
@@ -178,10 +186,10 @@ export const SiteMapView: React.FC = () => {
             <div className="h-6 w-[1px] bg-slate-200" />
 
             <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-red-600 animate-pulse" />
+              <span className={`h-2.5 w-2.5 rounded-full ${fireCount > 0 ? 'bg-red-600 animate-pulse' : 'bg-slate-300'}`} />
               <div>
-                <div className="text-xs font-bold text-red-600 leading-none">{fireCount} Fire</div>
-                <div className="text-[10px] text-red-400 font-medium">Đang báo cháy</div>
+                <div className={`text-xs font-bold leading-none ${fireCount > 0 ? 'text-red-600' : 'text-slate-900'}`}>{fireCount} Fire</div>
+                <div className="text-[10px] text-slate-400 font-medium">Đang báo cháy</div>
               </div>
             </div>
 
@@ -249,12 +257,13 @@ export const SiteMapView: React.FC = () => {
             {cameraPins.map((pin, idx) => {
               const isFire = pin.status === 'FIRE';
               const isWarning = pin.status === 'WARNING';
+              const isOffline = pin.status === 'OFFLINE';
 
               return (
                 <div
                   key={idx}
                   onClick={() => {
-                    if (isFire && activeIncident) {
+                    if (isFire && activeIncident?.cameraCode === pin.code) {
                       navigate(`/incidents/${activeIncident.id}`);
                     } else {
                       const foundCam = cameras.find((c) => c.code === pin.code);
@@ -281,6 +290,8 @@ export const SiteMapView: React.FC = () => {
                         ? 'bg-red-600 border-white text-white ring-4 ring-red-500/40 animate-pulse'
                         : isWarning
                         ? 'bg-amber-500 border-amber-200 text-slate-950 font-bold'
+                        : isOffline
+                        ? 'bg-slate-600 border-slate-400 text-white'
                         : 'bg-emerald-600 border-emerald-300 text-white hover:bg-emerald-500'
                     }`}
                   >
@@ -348,45 +359,49 @@ export const SiteMapView: React.FC = () => {
         {/* Right Sidebar Panels (1 Column) */}
         <div className="space-y-4">
           {/* Card 1: Emergency Fire Incident Alert Card */}
-          <div className="rounded-2xl border border-red-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-2 text-slate-900 font-extrabold text-sm mb-3">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-600 text-white">
-                <Flame className="h-4 w-4 fill-white" />
+          {activeIncident ? (
+            <div className="rounded-2xl border border-red-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center gap-2 text-slate-900 font-extrabold text-sm mb-3">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-600 text-white">
+                  <Flame className="h-4 w-4 fill-white" />
+                </div>
+                <span>Camera đang báo cháy</span>
               </div>
-              <span>Camera đang báo cháy</span>
-            </div>
 
-            {/* Thumbnail Image Preview */}
-            <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-900 group">
-              <img
-                src={cam08FireImg}
-                alt="CAM-08 Fire Incident"
-                className="w-full h-32 object-cover"
-              />
-              <div className="absolute top-2 right-2 rounded-md bg-red-600 text-white px-2 py-0.5 text-[10px] font-black uppercase tracking-wide animate-pulse">
-                FIRE
+              {/* Thumbnail Image Preview */}
+              <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-900 group">
+                <img
+                  src={activeIncident.snapshotUrl || cam08FireImg}
+                  alt={`${activeIncident.cameraCode} Fire Incident`}
+                  className="w-full h-32 object-cover"
+                />
+                <div className="absolute top-2 right-2 rounded-md bg-red-600 text-white px-2 py-0.5 text-[10px] font-black uppercase tracking-wide animate-pulse">
+                  FIRE
+                </div>
+                <div className="absolute bottom-2 left-2 text-white drop-shadow-md">
+                  <div className="font-extrabold text-xs">{activeIncident.cameraCode}</div>
+                  <div className="text-[11px] text-slate-200">{activeIncident.location}</div>
+                </div>
               </div>
-              <div className="absolute bottom-2 left-2 text-white drop-shadow-md">
-                <div className="font-extrabold text-xs">CAM-08</div>
-                <div className="text-[11px] text-slate-200">Kho nguyên liệu</div>
-              </div>
-            </div>
 
-            {/* View Incident Detail Red Button */}
-            <button
-              onClick={() => {
-                if (activeIncident) {
-                  navigate(`/incidents/${activeIncident.id}`);
-                } else {
-                  navigate('/incidents');
-                }
-              }}
-              className="mt-3 w-full rounded-xl bg-red-600 hover:bg-red-700 text-white py-2.5 text-xs font-bold shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5"
-            >
-              <span>Xem chi tiết sự cố</span>
-              <span>→</span>
-            </button>
-          </div>
+              {/* View Incident Detail Red Button */}
+              <button
+                onClick={() => navigate(`/incidents/${activeIncident.id}`)}
+                className="mt-3 w-full rounded-xl bg-red-600 hover:bg-red-700 text-white py-2.5 text-xs font-bold shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <span>Xem chi tiết sự cố</span>
+                <span>→</span>
+              </button>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm" id="sitemap-system-normal">
+              <div className="flex items-center gap-2 text-sm font-extrabold text-emerald-900">
+                <CheckCircle2 className="h-5 w-5" />
+                Không có sự cố đang mở
+              </div>
+              <p className="mt-2 text-xs text-emerald-800">Các camera tiếp tục được giám sát theo trạng thái hiện tại.</p>
+            </div>
+          )}
 
           {/* Card 2: Camera Status Breakdown Card */}
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-3">
@@ -398,7 +413,7 @@ export const SiteMapView: React.FC = () => {
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
                   <span>Online</span>
                 </div>
-                <span className="font-bold text-slate-900">23</span>
+                <span className="font-bold text-slate-900">{onlineCount}</span>
               </div>
 
               <div className="flex items-center justify-between py-1 border-b border-slate-100">
@@ -406,7 +421,7 @@ export const SiteMapView: React.FC = () => {
                   <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
                   <span>Cảnh báo</span>
                 </div>
-                <span className="font-bold text-slate-900">1</span>
+                <span className="font-bold text-slate-900">{warningCount}</span>
               </div>
 
               <div className="flex items-center justify-between py-1 border-b border-slate-100">
@@ -414,7 +429,7 @@ export const SiteMapView: React.FC = () => {
                   <span className="h-2.5 w-2.5 rounded-full bg-red-600" />
                   <span>Báo cháy</span>
                 </div>
-                <span className="font-bold text-slate-900">1</span>
+                <span className="font-bold text-slate-900">{fireCount}</span>
               </div>
 
               <div className="flex items-center justify-between py-1">
@@ -422,7 +437,7 @@ export const SiteMapView: React.FC = () => {
                   <span className="h-2.5 w-2.5 rounded-full bg-slate-400" />
                   <span>Offline</span>
                 </div>
-                <span className="font-bold text-slate-900">0</span>
+                <span className="font-bold text-slate-900">{offlineCount}</span>
               </div>
             </div>
           </div>

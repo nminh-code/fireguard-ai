@@ -11,6 +11,7 @@
     "ai:frames:stop": "node ai-pipeline/control.mjs stop",
     "ai:frames:status": "node ai-pipeline/control.mjs status",
     "test:ai": "node --test ai-pipeline/tests/*.test.mjs",
+    "test:incidents": "tsx --test tests/incidentService.test.ts",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",

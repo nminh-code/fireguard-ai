@@ -60,7 +60,14 @@ export const IncidentDetailView: React.FC = () => {
       }
     });
 
-    return () => unsub();
+    const unsubCamera = realtimeService.subscribeToCameraUpdates(updated => {
+      setCamera(current => current?.id === updated.id ? { ...updated } : current);
+    });
+
+    return () => {
+      unsub();
+      unsubCamera();
+    };
   }, [id]);
 
   if (loading) {

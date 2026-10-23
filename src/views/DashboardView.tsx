@@ -28,15 +28,13 @@ export const DashboardView: React.FC = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const [s, incs, cams] = await Promise.all([
+      const [s, cams] = await Promise.all([
         incidentService.getDashboardStats(),
-        incidentService.getIncidents(),
         cameraService.getCameras(),
       ]);
 
       setStats(s);
-      const active = incs.find((i) => i.status === 'ACTIVE' || i.status === 'RESPONDING');
-      setActiveIncident(active || null);
+      setActiveIncident(s.lastIncident ?? null);
 
       // Featured cameras: Active fire camera first, or key warehouse cameras
       const fireCam = cams.find((c) => c.status === 'FIRE');

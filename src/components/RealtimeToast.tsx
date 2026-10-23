@@ -15,7 +15,16 @@ export const RealtimeToast: React.FC = () => {
       }
     });
 
-    return () => unsub();
+    const unsubIncident = realtimeService.subscribeToIncidentEvents(incident => {
+      if (incident.status === 'RESOLVED' || incident.status === 'FALSE_ALARM') {
+        setActiveAlert(current => current?.incidentId === incident.id ? null : current);
+      }
+    });
+
+    return () => {
+      unsub();
+      unsubIncident();
+    };
   }, []);
 
   if (!activeAlert) return null;

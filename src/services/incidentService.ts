@@ -1,25 +1,97 @@
-import { Incident, IncidentStatus, DashboardStats, FireEvent, IncidentTimeline } from '../types';
-import { INITIAL_INCIDENT, INITIAL_HISTORY_EVENTS } from './mockData';
+import { Incident, DashboardStats, FireEvent, IncidentTimeline } from '../types';
+import { INITIAL_HISTORY_EVENTS } from './mockData';
 import { cameraService } from './cameraService';
 import { realtimeService } from './realtimeService';
 import { notificationService } from './notificationService';
 
-class IncidentService {
-  private incidents: Incident[] = [{ ...INITIAL_INCIDENT }];
-  private historyEvents: FireEvent[] = [...INITIAL_HISTORY_EVENTS];
+const STORAGE_KEY = 'favis_incident_state';
+type IncidentStorage = Pick<Storage, 'getItem' | 'setItem'>;
 
-  constructor() {
-    // Initial camera status for the active incident
-    cameraService.setCameraStatus('cam-08', 'FIRE', 'FIRE_DETECTED', 96, 94);
+function getStorage(): IncidentStorage | null {
+  try { return typeof localStorage === 'undefined' ? null : localStorage; }
+  catch { return null; }
+}
+
+function isOpen(incident: Incident): boolean {
+  return incident.status === 'ACTIVE' || incident.status === 'RESPONDING';
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object';
+}
+
+function isIncident(value: unknown): value is Incident {
+  if (!isRecord(value)) return false;
+  return ['id', 'code', 'cameraId', 'cameraCode', 'siteId', 'location', 'detectedAt']
+    .every(key => typeof value[key] === 'string') &&
+    value.eventType === 'FIRE_CONFIRMED' &&
+    ['ACTIVE', 'RESPONDING', 'RESOLVED', 'FALSE_ALARM'].includes(String(value.status)) &&
+    ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].includes(String(value.severity)) &&
+    typeof value.fireConfidence === 'number' && Number.isFinite(value.fireConfidence) &&
+    typeof value.smokeConfidence === 'number' && Number.isFinite(value.smokeConfidence) &&
+    Array.isArray(value.timeline) && value.timeline.every(item => isRecord(item) &&
+      ['id', 'time', 'title', 'description', 'type'].every(key => typeof item[key] === 'string'));
+}
+
+function isFireEvent(value: unknown): value is FireEvent {
+  return isRecord(value) &&
+    ['id', 'eventType', 'cameraId', 'cameraCode', 'location', 'severity', 'timestamp', 'status', 'details']
+      .every(key => typeof value[key] === 'string');
+}
+
+export class IncidentService {
+  private incidents: Incident[] = [];
+  private historyEvents: FireEvent[] = structuredClone(INITIAL_HISTORY_EVENTS);
+
+  constructor(private readonly storage: IncidentStorage | null = getStorage()) {
+    this.restoreState();
+  }
+
+  public restoreState(): void {
+    const previousCameraIds = this.incidents.map(incident => incident.cameraId);
+    try {
+      const raw = this.storage?.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const state: unknown = JSON.parse(raw);
+      if (!isRecord(state) || state.version !== 1 ||
+          !Array.isArray(state.incidents) || !state.incidents.every(isIncident) ||
+          !Array.isArray(state.historyEvents) || !state.historyEvents.every(isFireEvent)) return;
+      this.incidents = state.incidents;
+      this.historyEvents = state.historyEvents;
+    } catch { return; }
+
+    const cameraIds = new Set([...previousCameraIds, ...this.incidents.map(incident => incident.cameraId)]);
+    cameraIds.forEach(cameraId => this.syncCameraState(cameraId));
+    this.incidents.forEach(incident => realtimeService.dispatchIncident(structuredClone(incident)));
+    realtimeService.notifyGlobalChange();
+  }
+
+  private persistState(): void {
+    try {
+      this.storage?.setItem(STORAGE_KEY, JSON.stringify({
+        version: 1, incidents: this.incidents, historyEvents: this.historyEvents,
+      }));
+    } catch {
+      // Keep the current session usable when browser storage is unavailable.
+    }
+  }
+
+  private syncCameraState(cameraId: string): void {
+    const active = this.incidents.find(incident => incident.cameraId === cameraId && isOpen(incident));
+    if (active) {
+      cameraService.setCameraStatus(cameraId, 'FIRE', 'FIRE_DETECTED', active.fireConfidence, active.smokeConfidence);
+    } else {
+      cameraService.clearFireAlert(cameraId);
+    }
   }
 
   public async getIncidents(): Promise<Incident[]> {
-    return [...this.incidents];
+    return structuredClone(this.incidents);
   }
 
   public async getIncident(id: string): Promise<Incident | null> {
     const inc = this.incidents.find((i) => i.id === id || i.code.toLowerCase() === id.toLowerCase());
-    return inc ? { ...inc } : null;
+    return inc ? structuredClone(inc) : null;
   }
 
   public async getHistory(): Promise<FireEvent[]> {
@@ -30,11 +102,9 @@ class IncidentService {
     const cameras = await cameraService.getCameras();
     const onlineCount = cameras.filter((c) => c.status === 'ONLINE' || c.status === 'FIRE').length;
     const offlineCount = cameras.filter((c) => c.status === 'OFFLINE').length;
-    const activeIncidents = this.incidents.filter(
-      (i) => i.status === 'ACTIVE' || i.status === 'RESPONDING'
-    );
+    const activeIncidents = this.incidents.filter(isOpen);
 
-    const latestActive = activeIncidents[0] || (this.incidents.length > 0 ? this.incidents[0] : null);
+    const latestActive = activeIncidents[0] ?? null;
 
     const systemStatus = activeIncidents.length > 0 ? 'CRITICAL' : offlineCount > 0 ? 'WARNING' : 'OPERATIONAL';
 
@@ -45,13 +115,14 @@ class IncidentService {
       activeIncidents: activeIncidents.length,
       todayEventsCount: this.historyEvents.filter((e) => e.timestamp.includes('Hôm nay')).length,
       systemStatus,
-      lastIncident: latestActive,
+      lastIncident: latestActive ? structuredClone(latestActive) : null,
     };
   }
 
   public async startResponse(id: string, responderName = 'Nhân viên an ninh'): Promise<Incident | null> {
     const incident = this.incidents.find((i) => i.id === id || i.code === id);
     if (!incident) return null;
+    if (incident.status !== 'ACTIVE') return structuredClone(incident);
 
     const nowStr = new Date().toLocaleTimeString('vi-VN', { hour12: false });
     incident.status = 'RESPONDING';
@@ -81,8 +152,9 @@ class IncidentService {
       details: `${responderName} bắt đầu triển khai dập lửa tại ${incident.location}`,
     });
 
-    realtimeService.dispatchIncident(incident);
-    return { ...incident };
+    this.persistState();
+    realtimeService.dispatchIncident(structuredClone(incident));
+    return structuredClone(incident);
   }
 
   public async resolveIncident(
@@ -92,6 +164,7 @@ class IncidentService {
   ): Promise<Incident | null> {
     const incident = this.incidents.find((i) => i.id === id || i.code === id);
     if (!incident) return null;
+    if (!isOpen(incident)) return structuredClone(incident);
 
     const nowStr = new Date().toLocaleTimeString('vi-VN', { hour12: false });
     incident.status = 'RESOLVED';
@@ -111,20 +184,6 @@ class IncidentService {
     };
     incident.timeline.push(timelineItem);
 
-    // Reset camera state to ONLINE & AI MONITORING
-    cameraService.setCameraStatus(incident.cameraId, 'ONLINE', 'AI_MONITORING', 0, 0);
-
-    // Notification of resolution
-    notificationService.addNotification({
-      type: 'INCIDENT_UPDATE',
-      title: '✅ SỰ CỐ ĐÃ ĐƯỢC XỬ LÝ',
-      message: `Sự cố #${incident.code} tại ${incident.location} đã được xử lý bởi ${resolverName}.`,
-      location: incident.location,
-      cameraCode: incident.cameraCode,
-      incidentId: incident.id,
-      severity: 'LOW',
-    });
-
     // Add to history
     this.historyEvents.unshift({
       id: `evt-${Date.now()}`,
@@ -138,13 +197,27 @@ class IncidentService {
       details: `Sự cố ${incident.code} được giải quyết bởi ${resolverName}`,
     });
 
-    realtimeService.dispatchIncident(incident);
-    return { ...incident };
+    this.persistState();
+    this.syncCameraState(incident.cameraId);
+
+    notificationService.addNotification({
+      type: 'INCIDENT_UPDATE',
+      title: '✅ SỰ CỐ ĐÃ ĐƯỢC XỬ LÝ',
+      message: `Sự cố #${incident.code} tại ${incident.location} đã được xử lý bởi ${resolverName}.`,
+      location: incident.location,
+      cameraCode: incident.cameraCode,
+      incidentId: incident.id,
+      severity: 'LOW',
+    });
+
+    realtimeService.dispatchIncident(structuredClone(incident));
+    return structuredClone(incident);
   }
 
   public async markFalseAlarm(id: string, actorName = 'Trần Văn Mạnh', reason = 'Báo động giả do luồng hơi nhiệt'): Promise<Incident | null> {
     const incident = this.incidents.find((i) => i.id === id || i.code === id);
     if (!incident) return null;
+    if (!isOpen(incident)) return structuredClone(incident);
 
     const nowStr = new Date().toLocaleTimeString('vi-VN', { hour12: false });
     incident.status = 'FALSE_ALARM';
@@ -161,9 +234,6 @@ class IncidentService {
       actor: actorName,
     });
 
-    // Reset camera
-    cameraService.setCameraStatus(incident.cameraId, 'ONLINE', 'AI_MONITORING', 0, 0);
-
     // History
     this.historyEvents.unshift({
       id: `evt-${Date.now()}`,
@@ -177,8 +247,10 @@ class IncidentService {
       details: `Báo động giả tại ${incident.location}: ${reason}`,
     });
 
-    realtimeService.dispatchIncident(incident);
-    return { ...incident };
+    this.persistState();
+    this.syncCameraState(incident.cameraId);
+    realtimeService.dispatchIncident(structuredClone(incident));
+    return structuredClone(incident);
   }
 
   /**
@@ -197,10 +269,7 @@ class IncidentService {
     const timeStr = now.toLocaleTimeString('vi-VN', { hour12: false });
     const incNumber = (this.incidents.length + 1).toString().padStart(3, '0');
     const incidentCode = `FG-2026-${incNumber}`;
-    const incidentId = `inc-${Date.now().toString().slice(-6)}`;
-
-    // Set camera CAM-08 to FIRE
-    cameraService.setCameraStatus('cam-08', 'FIRE', 'FIRE_DETECTED', 98, 95);
+    const incidentId = `inc-${crypto.randomUUID()}`;
 
     const newIncident: Incident = {
       id: incidentId,
@@ -248,17 +317,6 @@ class IncidentService {
     // Prepend new incident so it's top
     this.incidents.unshift(newIncident);
 
-    // Create Notification
-    notificationService.addNotification({
-      type: 'FIRE_CONFIRMED',
-      title: '🔥 FIRE CONFIRMED',
-      message: `Kho nguyên liệu A - Camera CAM-08 | Nguy cơ cấp bách (Critical). AI xác nhận 98%.`,
-      location: 'Kho nguyên liệu A',
-      cameraCode: 'CAM-08',
-      incidentId: newIncident.id,
-      severity: 'CRITICAL',
-    });
-
     // History event
     this.historyEvents.unshift({
       id: `evt-${Date.now()}`,
@@ -272,20 +330,38 @@ class IncidentService {
       details: 'Phát hiện ngọn lửa bùng phát từ pallet, AI confidence 98%',
     });
 
-    // Broadcast
-    realtimeService.dispatchIncident(newIncident);
-    return newIncident;
+    this.persistState();
+    this.syncCameraState(newIncident.cameraId);
+
+    notificationService.addNotification({
+      type: 'FIRE_CONFIRMED',
+      title: '🔥 FIRE CONFIRMED',
+      message: `Kho nguyên liệu A - Camera CAM-08 | Nguy cơ cấp bách (Critical). AI xác nhận 98%.`,
+      location: 'Kho nguyên liệu A',
+      cameraCode: 'CAM-08',
+      incidentId: newIncident.id,
+      severity: 'CRITICAL',
+    });
+
+    realtimeService.dispatchIncident(structuredClone(newIncident));
+    return structuredClone(newIncident);
   }
 
   /**
    * Section 16: Quick RESOLVE INCIDENT for demo
    */
   public resolveLatestActiveIncident(resolverName = 'Nguyễn Văn A'): Incident | null {
-    const active = this.incidents.find((i) => i.status === 'ACTIVE' || i.status === 'RESPONDING');
+    const active = this.incidents.find(isOpen);
     if (!active) return null;
     this.resolveIncident(active.id, resolverName, 'Đã sử dụng bình bọt chữa cháy dập tắt hoàn toàn.');
-    return active;
+    return structuredClone(active);
   }
 }
 
 export const incidentService = new IncidentService();
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', event => {
+    if (event.key === STORAGE_KEY) incidentService.restoreState();
+  });
+}

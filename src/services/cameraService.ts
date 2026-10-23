@@ -63,6 +63,20 @@ class CameraService {
     realtimeService.dispatchCameraUpdate(this.cameras[index]);
     return { ...this.cameras[index] };
   }
+
+  public clearFireAlert(id: string): Camera | null {
+    const camera = this.cameras.find((c) => c.id === id || c.code === id);
+    if (!camera) return null;
+
+    const offline = camera.status === 'OFFLINE';
+    return this.setCameraStatus(
+      camera.id,
+      offline ? 'OFFLINE' : 'ONLINE',
+      offline ? 'OFFLINE' : 'AI_MONITORING',
+      0,
+      0
+    );
+  }
 }
 
 export const cameraService = new CameraService();
